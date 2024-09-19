@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite';
 import laravel from 'laravel-vite-plugin';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
+import path from "path";
 
 export default defineConfig({
     plugins: [
@@ -10,8 +11,9 @@ export default defineConfig({
         }),
         svelte(),
     ],
-    resolve: name => {
-        const pages = import.meta.glob('./Pages/**/*.svelte', { eager: true })
-        return pages[`./Pages/${name}.svelte`]
+    resolve: {
+        alias: {
+            $lib: path.resolve("./resources/js"),
+        }
     },
 });
