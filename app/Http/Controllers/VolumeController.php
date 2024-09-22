@@ -14,11 +14,25 @@ class VolumeController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index(): JsonResponse
+    public function index(Request $request, VolumeService $volumeService): JsonResponse
     {
         $return_data = [];
 
-        $volumes = Volume::all();
+        $volumes = [];
+        if ($request->input('type')) {
+            $volumes = Volume::select('*')
+                ->where('type', '=', $request->input('type'))
+                ->get();
+        } else {
+            $volumes = Volume::all();
+        }
+
+        foreach ($volumes as &$volume) {
+            $volume['free_space'] = $volumeService->getFreeSpace($volume);
+            $volume['total_space'] = $volumeService->getTotalSpace($volume);
+        }
+
+
         $return_data['volumes'] = $volumes;
 
         return new JsonResponse($return_data);
@@ -54,9 +68,18 @@ class VolumeController extends Controller
     /**
      * Display the specified resource.
      */
-    public function show(string $id): void
+    public function show(string $id): JsonResponse
     {
-        //
+        $volume = Volume::find($id);
+        if (!$volume) {
+            abort(404, 'Volume with id ' . $id . ' not found');
+        }
+
+        $returnData = [];
+        $returnData['free_space'] = disk_free_space($volume->absolute_path);
+        $return_data['total_space'] = disk_total_space($volume->absolute_path);
+
+        return new JsonResponse($returnData);
     }
 
     /**
@@ -78,19 +101,14 @@ class VolumeController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(string $id): Response
+    public function destroy(string $id, VolumeService $volumeService): Response
     {
-        $volume = Volume::find($id);
-
-        if (!$volume) {
-            abort(404, 'Volume with id ' . $id . ' not found');
+        try {
+            $volumeService->deleteVolume($id);
+        } catch (\App\Exceptions\InvalidVolumeException $th) {
+            abort(404, $th->getMessage());
         }
 
-        $result = $volume->delete();
-        if ($result) {
-            return response(status: 200);
-        } else {
-            abort(500);
-        }
+        return response(status: 200);
     }
 }

@@ -40,13 +40,12 @@
     });
 </script>
 
-<SettingsSectionTitle>Volumes</SettingsSectionTitle>
+<SettingsSectionTitle class="mt-0 border-0">Volumes</SettingsSectionTitle>
 
-<div>
-    <Button disabled={refresh_disabled} on:click={refreshVolumes}
-        >Refresh</Button
-    >
-    <AddNewVolumeDialog on:volumeAdded={refreshVolumes} />
+<div class="flex flex-col gap-y-4">
+    <div>
+        <AddNewVolumeDialog on:volumeAdded={refreshVolumes} />
+    </div>
 
     <div class="flex flex-col gap-y-4">
         {#each volumes as volume}

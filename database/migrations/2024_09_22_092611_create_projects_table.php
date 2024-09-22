@@ -15,8 +15,8 @@ return new class extends Migration
             $table->id();
             $table->timestamps();
 
-            $table->string('name');
-            $table->foreignId('volume')->references('id')->on('volumes');
+            $table->string('title');
+            $table->foreignId('volume_id')->references('id')->on('volumes');
         });
     }
 

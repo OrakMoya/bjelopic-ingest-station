@@ -8,9 +8,10 @@
     const dispatch = createEventDispatcher();
 
     /**
-     * @type {{ id: number; display_name: any; absolute_path: any; }}
+     * @type {{ id: number; display_name: string; absolute_path: string; type: string; free_space: number; total_space: number  }}
      */
     export let volume;
+    export let details;
     let open = false;
 
     function deleteThisVolume() {
@@ -38,6 +39,15 @@
         <div>
             {volume.absolute_path}
         </div>
+        <div>
+            {volume.type}
+        </div>
+        <div>
+            {(100-(volume.free_space/volume.total_space)*100).toFixed(1)}%
+        </div>
+        <div>
+            {(volume.free_space/Math.pow(1024, 3)).toFixed(2)} GiB free
+        </div>
     </div>
     <div>
         <Dialog.Root bind:open>
@@ -55,7 +65,9 @@
                 </Dialog.Header>
                 <Dialog.Footer>
                     <Button on:click={() => (open = false)}>Cancel</Button>
-                    <Button on:click={deleteThisVolume} variant="destructive">Delete</Button>
+                    <Button on:click={deleteThisVolume} variant="destructive"
+                        >Delete</Button
+                    >
                 </Dialog.Footer>
             </Dialog.Content>
         </Dialog.Root>

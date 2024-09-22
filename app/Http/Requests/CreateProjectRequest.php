@@ -4,7 +4,7 @@ namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
 
-class CreateVolumeRequest extends FormRequest
+class CreateProjectRequest extends FormRequest
 {
     /**
      * Determine if the user is authorized to make this request.
@@ -22,9 +22,16 @@ class CreateVolumeRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'display_name' => ['string', 'min:3', 'max:255', 'unique:volumes'],
-            'absolute_path' => ['string', 'min:1', 'max:255', 'unique:volumes'],
-            'type' => ['string', 'in:storage,ingest']
+            'title' => ['required', 'string', 'min:3', 'max:50'],
+            'volume_id' => ['required', 'integer', 'exists:volumes,id']
         ];
+    }
+
+    public function messages(): array
+    {
+        return ['volume_id' => [
+            'required' => 'A volume is required.',
+            'exists:volumes,id' => 'This volume doesn\'t exist.'
+        ]];
     }
 }

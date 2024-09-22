@@ -7,6 +7,7 @@
     import { Label } from "$lib/components/ui/label";
     import axios from "axios";
     import { toast } from "svelte-sonner";
+    import * as Tabs from "$lib/components/ui/tabs";
 
     const dispatch = createEventDispatcher();
     const csrf_token = document
@@ -31,6 +32,7 @@
         _token: csrf_token,
         display_name: null,
         absolute_path: null,
+        type: "storage",
     };
 </script>
 
@@ -52,6 +54,16 @@
 
             <Label for="path">Path</Label>
             <Input id="path" bind:value={formData.absolute_path} />
+
+            <Tabs.Root
+                class="w-full"
+                bind:value={formData.type}
+            >
+                <Tabs.List>
+                    <Tabs.Trigger value="storage">Storage</Tabs.Trigger>
+                    <Tabs.Trigger value="ingest">Ingest</Tabs.Trigger>
+                </Tabs.List>
+            </Tabs.Root>
 
             <Dialog.Footer>
                 <Button type="submit">Submit</Button>

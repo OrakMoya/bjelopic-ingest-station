@@ -20,6 +20,8 @@
         "@sveltejs/vite-plugin-svelte": "^3.1.2",
         "bits-ui": "^0.21.15",
         "clsx": "^2.1.1",
+        "cmdk-sv": "^0.0.18",
+        "lucide-svelte": "^0.445.0",
         "mode-watcher": "^0.4.1",
         "paneforge": "^0.0.6",
         "path": "^0.12.7",

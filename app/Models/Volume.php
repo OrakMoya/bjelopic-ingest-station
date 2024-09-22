@@ -6,7 +6,8 @@ use App\Exceptions\InvalidVolumeException;
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Storage;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Storage;
 
 class Volume extends Model
 {
@@ -14,7 +15,8 @@ class Volume extends Model
 
     protected $fillable = [
         'display_name',
-        'absolute_path'
+        'absolute_path',
+        'type'
     ];
 
 
@@ -29,5 +31,11 @@ class Volume extends Model
             'driver' => 'local',
             'root' => $this->attributes['absolute_path']
         ]);
+    }
+
+
+    public function projects(): HasMany
+    {
+        return $this->hasMany(Project::class, 'volume_id');
     }
 }

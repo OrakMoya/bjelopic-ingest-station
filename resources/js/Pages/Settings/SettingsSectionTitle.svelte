@@ -1,4 +1,13 @@
-<div class="w-full border-b border-b-slate-800 mt-8 mb-4">
+<script>
+    import { cn } from "$lib/utils";
+</script>
+
+<div
+    class=" {cn(
+        'mt-8  w-full border-t border-slate-800 mb-4',
+        $$restProps.class,
+    )}"
+>
     <span class="text-xl font-bold">
         <slot />
     </span>

@@ -18,10 +18,11 @@
 
 <div class="dark w-screen h-screen overflow-hidden">
     <div class="flex w-full h-full">
-        <div class="border-r border-r-slate-800 p-4 min-w-40 w-fit">
+        <div class="border-r border-r-slate-800 p-4 min-w-40 w-fit flex  flex-col">
+            <Link href="/projects">Projects</Link>
             <Link href="/settings">Settings</Link>
         </div>
-        <div class="w-full h-full max-w-screen-md mx-auto px-4 box-content">
+        <div class="w-full h-full max-w-screen-xl mx-auto px-4 py-4 box-content">
             <slot />
         </div>
     </div>
