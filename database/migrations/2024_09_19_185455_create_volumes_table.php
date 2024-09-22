@@ -15,7 +15,8 @@ return new class extends Migration
             $table->id();
             $table->timestamps();
 
-            $table->string('absolute_path');
+            $table->string('absolute_path')->unique();
+            $table->string('display_name')->unique();
             $table->boolean('is_alive')->default('false');
         });
     }

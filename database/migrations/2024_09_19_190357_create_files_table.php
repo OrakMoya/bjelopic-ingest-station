@@ -17,6 +17,8 @@ return new class extends Migration
 
             $table->string('filename');
             $table->string('path');
+            $table->unique(['filename', 'path']);
+
             $table->foreignId('volume_id')->references('id')->on('volumes');
             $table->boolean('is_dynamic')->default(false);
         });

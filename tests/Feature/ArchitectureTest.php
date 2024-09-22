@@ -1,0 +1,4 @@
+<?php
+
+
+arch()->preset()->laravel();
