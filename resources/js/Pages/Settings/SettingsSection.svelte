@@ -1,3 +1,3 @@
-<section class="p-8 border border-slate-800 rounded-xl">
+<section class="p-8 border border-accent rounded-xl">
     <slot />
 </section>

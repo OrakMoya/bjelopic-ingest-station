@@ -3,9 +3,11 @@
 namespace App\Console\Commands;
 
 use App\Actions\IndexFilesForVolumeAction;
+use App\Events\IngestEvent;
 use App\Models\File;
 use App\Models\Volume;
 use Carbon\Carbon;
+use GuzzleHttp\Utils;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Log;
@@ -18,7 +20,7 @@ class IndexFilesCommand extends Command
      *
      * @var string
      */
-    protected $signature = 'app:index-files {--volume=%}';
+    protected $signature = 'app:index-files {--volume=} {--no-exif} {--fresh}';
 
     /**
      * The console command description.
@@ -34,29 +36,39 @@ class IndexFilesCommand extends Command
     {
         DB::disableQueryLog();
 
-        $this->info('Indexing files...');
-        $volumes = Volume::select('id', 'display_name', 'absolute_path')
-            ->where(
-                'display_name',
-                'LIKE',
-                $this->option('volume')
-            )
-            ->get();
+        $target_volume = $this->option('volume');
 
-        if (!count($volumes) && $this->option('volume') != '%') {
+        $this->info('Indexing files...');
+
+        $volumes = null;
+        $volumes = Volume::select('id', 'display_name', 'absolute_path', 'type');
+        if ($target_volume) {
+            $volumes->where(
+                'display_name',
+                '=',
+                $target_volume
+            );
+        } else {
+            $volumes = Volume::select(['id', 'display_name', 'absolute_path', 'type']);
+        }
+        $volumes = $volumes->get();
+        if (!count($volumes) && $target_volume != '%') {
             $this->error('Volume ' . $this->option('volume') . ' not found');
             return 1;
         }
 
+
         foreach ($volumes as $volume) {
-            $disk = Storage::build([
-                'driver' => 'local',
-                'root' => $volume->absolute_path
-            ]);
+            $disk = $volume->getDiskInstance();
 
             $filesInDatabase = File::select('*')
-                ->where('volume_id', '=', $volume->id)
-                ->get()->toArray();
+                ->where('volume_id', '=', $volume->id);
+            if ($this->option('fresh')) {
+                $filesInDatabase->delete();
+                $filesInDatabase = [];
+            } else {
+                $filesInDatabase = $filesInDatabase->get()->toArray();
+            }
             $filesInVolume = $disk->allFiles();
 
             $missingFilesFromDatabase = [];
@@ -79,12 +91,23 @@ class IndexFilesCommand extends Command
                         break;
                     }
                 }
-
                 // Remove accounted for file from database array.
                 // This leaves only the files that don't have a matching file in the volume.
                 if (!is_null($databaseFileEquivalentIndex)) {
                     array_splice($filesInDatabase, $databaseFileEquivalentIndex, 1);
                     continue;
+                }
+
+
+                $exif = [];
+                if (!$this->option('no-exif')) {
+                    $reader = \PHPExif\Reader\Reader::factory(\PHPExif\Reader\Reader::TYPE_EXIFTOOL);
+
+                    $path = $volume->absolute_path . '/' . $fileInVolume;
+                    $exifType = $reader->read($path);
+
+                    $exif['data'] = $exifType->getData();
+                    $exif['raw_data'] = $exifType->getRawData();
                 }
 
                 array_push(
@@ -93,6 +116,8 @@ class IndexFilesCommand extends Command
                         'filename' => $pathParts['basename'],
                         'path' => $pathParts['dirname'],
                         'volume_id' => $volume->id,
+                        'exif' => Utils::jsonEncode($exif),
+                        'mimetype' => mime_content_type($volume->absolute_path . '/' . $fileInVolume),
                         'created_at' => Carbon::now(),
                         'updated_at' => Carbon::now(),
                     ]
@@ -115,6 +140,11 @@ class IndexFilesCommand extends Command
                 }
 
                 DB::table('files')->whereIn('id', $missingFilesFromDatabaseIds)->delete();
+            }
+
+            if ($volume->type == "ingest") {
+                $this->info('volume type is ingest. Firing event');
+                IngestEvent::dispatch(['status' => 'added']);
             }
         }
 

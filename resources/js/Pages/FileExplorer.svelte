@@ -48,7 +48,6 @@
     $: entries = processEntries(parent, directories, files);
     $: breadcrumb_trail = processBreadcrumbTrail($page.url);
 
-    console.log(files);
 </script>
 
 <main class="m-4 max-w-screen-md mx-auto border rounded-lg overflow-clip">

@@ -5,6 +5,7 @@ namespace App\Services;
 use App;
 use App\Exceptions\InvalidVolumeException;
 use App\Models\Volume;
+use Illuminate\Support\Str;
 use Storage;
 
 class VolumeService
@@ -14,7 +15,7 @@ class VolumeService
      */
     public function addNewVolume(array $attributes): Volume
     {
-        $absolute_path = $attributes['absolute_path'];
+        $absolute_path = Str::chopEnd($attributes['absolute_path'], '/');
         $display_name = $attributes['display_name'];
         $type = $attributes['type'];
 
@@ -64,7 +65,8 @@ class VolumeService
     }
 
 
-    public function createDirectory(Volume $volume, string $path): bool{
+    public function createDirectory(Volume $volume, string $path): bool
+    {
         $disk = Storage::build([
             'driver' => 'local',
             'root' => $volume->absolute_path
@@ -73,11 +75,13 @@ class VolumeService
     }
 
 
-    public function getFreeSpace(Volume $volume){
+    public function getFreeSpace(Volume $volume)
+    {
         return disk_free_space($volume->absolute_path);
     }
 
-    public function getTotalSpace(Volume $volume){
+    public function getTotalSpace(Volume $volume)
+    {
         return disk_total_space($volume->absolute_path);
     }
 }

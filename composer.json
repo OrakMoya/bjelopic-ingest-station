@@ -11,6 +11,7 @@
         "laravel/prompts": "^0.1.25",
         "laravel/reverb": "^1.0",
         "laravel/tinker": "^2.9",
+        "miljar/php-exif": "^0.6.5",
         "spatie/temporary-directory": "^2.2"
     },
     "require-dev": {

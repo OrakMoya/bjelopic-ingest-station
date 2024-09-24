@@ -27,9 +27,16 @@ class VolumeController extends Controller
             $volumes = Volume::all();
         }
 
-        foreach ($volumes as &$volume) {
-            $volume['free_space'] = $volumeService->getFreeSpace($volume);
-            $volume['total_space'] = $volumeService->getTotalSpace($volume);
+        if ($request->input('free_space', 0)) {
+            foreach ($volumes as &$volume) {
+                $volume['free_space'] = $volumeService->getFreeSpace($volume);
+            }
+        }
+
+        if ($request->input('total_space', 0)) {
+            foreach ($volumes as &$volume) {
+                $volume['total_space'] = $volumeService->getTotalSpace($volume);
+            }
         }
 
 

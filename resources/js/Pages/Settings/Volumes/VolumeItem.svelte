@@ -11,7 +11,6 @@
      * @type {{ id: number; display_name: string; absolute_path: string; type: string; free_space: number; total_space: number  }}
      */
     export let volume;
-    export let details;
     let open = false;
 
     function deleteThisVolume() {

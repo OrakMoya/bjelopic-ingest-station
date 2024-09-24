@@ -19,6 +19,9 @@ return new class extends Migration
             $table->string('path');
             $table->unique(['filename', 'path']);
 
+            $table->json('exif')->nullable();
+            $table->string('mimetype');
+
             $table->foreignId('volume_id')->references('id')->on('volumes');
             $table->boolean('is_dynamic')->default(false);
         });

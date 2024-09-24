@@ -38,4 +38,9 @@ class Volume extends Model
     {
         return $this->hasMany(Project::class, 'volume_id');
     }
+
+    public function files(): HasMany
+    {
+        return $this->hasMany(File::class, 'volume_id', 'id' );
+    }
 }
