@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Actions\IndexFilesForVolumeAction;
 use App\Events\IngestEvent;
+use App\Events\IngestIndexedEvent;
 use App\Models\File;
 use App\Models\Volume;
 use Carbon\Carbon;
@@ -142,9 +143,9 @@ class IndexFilesCommand extends Command
                 DB::table('files')->whereIn('id', $missingFilesFromDatabaseIds)->delete();
             }
 
-            if ($volume->type == "ingest") {
+            if ($volume->type == "ingest" && count($missingFilesFromDatabase)) {
                 $this->info('volume type is ingest. Firing event');
-                IngestEvent::dispatch(['status' => 'added']);
+                IngestIndexedEvent::dispatch();
             }
         }
 

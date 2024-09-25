@@ -38,6 +38,9 @@ Route::get('/projects/{id}', [ProjectController::class, 'show'])
 Route::get('/ingest', [IngestSidebarController::class, 'index'] )
     ->name('ingest');
 
+Route::post('/ingest', [IngestSidebarController::class, 'store'] )
+    ->name('ingest.start');
+
 
 Route::get('/files/{path}', [FileExplorerController::class, 'index'])
     ->where('path', '(.*)');

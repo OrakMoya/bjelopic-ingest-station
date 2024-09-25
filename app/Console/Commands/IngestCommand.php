@@ -2,7 +2,10 @@
 
 namespace App\Console\Commands;
 
+use App\Events\FileIngestedEvent;
+use App\Events\IngestCompleteEvent;
 use App\Events\IngestEvent;
+use App\Events\IngestStartedEvent;
 use App\Helpers\IngestRuleFactory;
 use App\Models\File;
 use App\Models\IngestRule;
@@ -19,7 +22,7 @@ class IngestCommand extends Command
      *
      * @var string
      */
-    protected $signature = 'app:ingest {--project_id=}';
+    protected $signature = 'app:ingest {--project-id=}';
 
     /**
      * The console command description.
@@ -34,8 +37,8 @@ class IngestCommand extends Command
     public function handle()
     {
         $project = null;
-        if ($project_id = $this->option('project_id')) {
-            $project = Project::find($project_id);
+        if ($projectId = $this->option('project-id')) {
+            $project = Project::find($projectId);
         } else {
             $projects = Project::all();
             if (!$projects->count()) {
@@ -60,7 +63,7 @@ class IngestCommand extends Command
         }
 
         if (!$project) {
-            $this->error('Project with id ' . $project_id . ' not found.');
+            $this->error('Project with id ' . $projectId . ' not found.');
             return 1;
         }
         $projectVolume = Volume::find($project->volume_id);
@@ -76,7 +79,20 @@ class IngestCommand extends Command
         $ingestVolumes = Volume::select('*')
             ->where('type', '=', 'ingest')
             ->get();
+
+
+        IngestStartedEvent::dispatch(
+            'Ingest started!',
+            File::select('id', 'volume_id')
+                ->whereIn(
+                    'volume_id',
+                    Volume::select('id', 'type')->where('type', '=', 'ingest')->pluck('id')
+                )
+                ->count()
+        );
+
         foreach ($ingestVolumes as $ingestVolume) {
+
             $filesInIngestVolume = File::select('*')
                 ->where('volume_id', '=', $ingestVolume->id)
                 ->orderBy('created_at', 'ASC')
@@ -114,9 +130,11 @@ class IngestCommand extends Command
                 $file->volume_id = $projectVolume->id;
                 $file->save();
 
-                IngestEvent::dispatch(['id' => $file->id, 'status' => 'ingested']);
+                FileIngestedEvent::dispatch($file);
             }
         }
+
+        IngestCompleteEvent::dispatch('Ingest complete!');
 
         return 0;
     }

@@ -1,8 +1,12 @@
 <script>
     import { Link } from "@inertiajs/svelte";
-import { portal } from "svelte-portal";
+    import { portal } from "svelte-portal";
+    import {active_project} from "$lib/store";
 
     export let project;
+
+    active_project.set(project);
+
 </script>
 
 <nav use:portal={"#global-sidebar"} class="min-w-fit flex flex-col gap-y-2">

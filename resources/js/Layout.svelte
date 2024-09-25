@@ -13,7 +13,7 @@
 </script>
 
 <ModeWatcher />
-<Toaster richColors />
+<Toaster richColors position="bottom-center" />
 
 <div class="dark w-screen h-screen">
     <div class="flex w-full h-full">

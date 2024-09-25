@@ -4,12 +4,14 @@ namespace App\Http\Controllers;
 
 use App\Models\File;
 use App\Models\Volume;
+use Artisan;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 
 class IngestSidebarController extends Controller
 {
-    public function index()
+    public function index(): JsonResponse
     {
         $returnData = [];
 
@@ -26,5 +28,18 @@ class IngestSidebarController extends Controller
         $returnData['ingest_data'] = $ingestFiles;
 
         return new JsonResponse($returnData);
+    }
+
+    public function store(Request $request): Response
+    {
+        $request->validate(
+            ['id'=>'required|exists:projects']
+        );
+        $id = $request->id;
+        defer(function () use ($id) {
+            Artisan::call('app:ingest', ['--project-id' => $id]);
+        });
+
+        return response(status: 200);
     }
 }
