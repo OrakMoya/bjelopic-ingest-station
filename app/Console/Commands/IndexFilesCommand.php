@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Actions\IndexFilesForVolumeAction;
+use App\Events\IndexEvent;
 use App\Events\IngestEvent;
 use App\Events\IngestIndexedEvent;
 use App\Models\File;
@@ -10,9 +11,10 @@ use App\Models\Volume;
 use Carbon\Carbon;
 use GuzzleHttp\Utils;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Bus;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
-use Log;
-use Storage;
+use Illuminate\Support\Facades\Log;
 
 class IndexFilesCommand extends Command
 {
@@ -35,22 +37,45 @@ class IndexFilesCommand extends Command
      */
     public function handle(): int
     {
+
+        if (Cache::get('ingesting', false)) {
+            $msg = 'Ingest going on, skipping indexing...';
+            $this->info($msg);
+            return 0;
+        }
+
+        $result = 0;
+        $volumesLock = Cache::lock('volumes');
+
+        // Having the actual function separate and in a closure inside
+        // the get() method ensures the lock is released even if
+        // indexing throws.
+        if (!$volumesLock->get(function () use (&$result) {
+            $result = $this->index();
+        })) {
+            $this->info('Unable to lock volumes. Skipping indexing...');
+            return 0;
+        }
+        return $result;
+    }
+
+    public function index(): int
+    {
         DB::disableQueryLog();
 
         $target_volume = $this->option('volume');
 
         $this->info('Indexing files...');
 
-        $volumes = null;
-        $volumes = Volume::select('id', 'display_name', 'absolute_path', 'type');
+        $volumes = Volume::select('*');
         if ($target_volume) {
-            $volumes->where(
+            $volumes = $volumes->where(
                 'display_name',
                 '=',
                 $target_volume
             );
         } else {
-            $volumes = Volume::select(['id', 'display_name', 'absolute_path', 'type']);
+            $volumes = $volumes->where('disable_index', '=', false);
         }
         $volumes = $volumes->get();
         if (!count($volumes) && $target_volume != '%') {
@@ -70,7 +95,19 @@ class IndexFilesCommand extends Command
             } else {
                 $filesInDatabase = $filesInDatabase->get()->toArray();
             }
+
             $filesInVolume = $disk->allFiles();
+            $tenSecondsAgo = Carbon::now()->subSeconds(10);
+            $filesInVolume = array_filter($filesInVolume, function ($file) use ($tenSecondsAgo, $volume) {
+                try {
+                    $fileCreationTime = filectime($volume->absolute_path .  '/' . $file);
+                    $fileModifiedTime = filemtime($volume->absolute_path . '/' . $file);
+                    return $fileCreationTime < $tenSecondsAgo->timestamp
+                        && $fileModifiedTime < $tenSecondsAgo->timestamp;
+                } catch (\Throwable) {
+                }
+                return false;
+            });
 
             $missingFilesFromDatabase = [];
 
@@ -98,17 +135,23 @@ class IndexFilesCommand extends Command
                     array_splice($filesInDatabase, $databaseFileEquivalentIndex, 1);
                     continue;
                 }
+                if (count($filesInDatabase) != count($filesInVolume) && !Cache::get('indexing', false)) {
+                    Cache::put('indexing', true);
+                    IndexEvent::dispatch('Index started! Adding', true);
+                }
 
 
+                $path = $volume->absolute_path. '/' . $fileInVolume;
+                $mimetype = mime_content_type($path);
                 $exif = [];
                 if (!$this->option('no-exif')) {
                     $reader = \PHPExif\Reader\Reader::factory(\PHPExif\Reader\Reader::TYPE_EXIFTOOL);
 
-                    $path = $volume->absolute_path . '/' . $fileInVolume;
                     $exifType = $reader->read($path);
 
                     $exif['data'] = $exifType->getData();
                     $exif['raw_data'] = $exifType->getRawData();
+                    $mimetype = $exifType->getMimeType();
                 }
 
                 array_push(
@@ -133,6 +176,11 @@ class IndexFilesCommand extends Command
 
             // Mass delete missing files from database
             if (count($filesInDatabase)) {
+                if (count($filesInDatabase) != count($filesInVolume) && !Cache::get('indexing', false)) {
+                    Cache::put('indexing', true);
+                    IndexEvent::dispatch('Index started! Missing', true);
+                }
+
                 $this->warn(count($filesInDatabase) . ' missing files. Deleting entries...');
 
                 $missingFilesFromDatabaseIds = [];
@@ -147,6 +195,11 @@ class IndexFilesCommand extends Command
                 $this->info('volume type is ingest. Firing event');
                 IngestIndexedEvent::dispatch();
             }
+        }
+
+        if (Cache::get('indexing', false)) {
+            Cache::delete('indexing');
+            IndexEvent::dispatch('Index complete!', false);
         }
 
         DB::enableQueryLog();

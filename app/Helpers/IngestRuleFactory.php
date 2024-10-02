@@ -2,13 +2,15 @@
 
 namespace App\Helpers;
 
+use App\Exceptions\IngestRuleCriteriaException;
+use App\Exceptions\InvalidIngestOperationException;
 use App\Helpers\IngestRuleOperations\FilenameContainsOperation;
 use App\Helpers\IngestRuleOperations\MimetypeIsOperation;
 use App\Helpers\IngestRuleOperations\SaveOperation;
 use App\Helpers\IngestRule;
-use Exception;
+use App\Interfaces\IngestRuleOperation;
 use GuzzleHttp\Utils;
-
+use Illuminate\Support\Str;
 
 /*
  * Ingest rule format:
@@ -30,7 +32,6 @@ use GuzzleHttp\Utils;
  *                  operation => 'save',
  *                  criteria => project relative path,
  *                  opts => ...
- *                  next => [] empty array, is ignored
  *              ]
  *          ]
  *      ]
@@ -52,37 +53,43 @@ class IngestRuleFactory
 
         $arrayOfRuleObjects = [];
 
-        foreach ($rules as $rule) {
-            $operationString = $rule['operation'];
-            $criteriaString = $rule['criteria'];
-            $nextRules = $rule['next'];
-            if (is_null($nextRules)) {
-                $nextRules = [];
-            }
-            $opts = $rule['opts'];
+        // Next rules are actually a single rule
+        if (isset($rules['operation'])) {
+            $rules = [$rules];
+        }
 
-            $ingestOperation = null;
-            switch ($operationString) {
-                case 'filenameContains':
-                    $ingestOperation = new FilenameContainsOperation();
-                    break;
-                case 'mimetypeIs':
-                    $ingestOperation = new MimetypeIsOperation();
-                    break;
-                case 'save':
-                    $ingestOperation = new SaveOperation();
-                    break;
-                default:
-                    throw new Exception("Invalid operation");
+        foreach ($rules as $rule) {
+            $operationString = Str::of($rule['operation'])->trim();
+            $criteriaString = Str::of($rule['criteria'])->trim();
+            $nextRules = $rule['next'] ?? [];
+            $opts = $rule['opts'] ?? [];
+
+            if ($criteriaString->isEmpty()) {
+                $msg = 'Invalid ingest rule criteria.';
+                throw new IngestRuleCriteriaException($msg);
             }
+
+            $ingestOperation = IngestRuleFactory::processIngestRuleOperation($operationString->toString());
 
             array_push($arrayOfRuleObjects, new IngestRule(
                 $ingestOperation,
-                $criteriaString,
+                $criteriaString->toString(),
                 IngestRuleFactory::create($nextRules),
                 $opts
             ));
         }
+
         return $arrayOfRuleObjects;
+    }
+
+    private static function processIngestRuleOperation(string $operation): IngestRuleOperation
+    {
+
+        return match ($operation) {
+            'filenameContains' => new FilenameContainsOperation(),
+            'mimetypeIs' => new MimetypeIsOperation(),
+            'save' => new SaveOperation(),
+            default => throw new InvalidIngestOperationException("Invalid operation: " . $operation)
+        };
     }
 }

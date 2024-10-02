@@ -17,7 +17,7 @@ return new class extends Migration
 
             $table->string('filename');
             $table->string('path');
-            $table->unique(['filename', 'path']);
+            $table->unique(['filename', 'path', 'volume_id']);
 
             $table->json('exif')->nullable();
             $table->string('mimetype');

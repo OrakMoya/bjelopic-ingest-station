@@ -6,6 +6,7 @@
     import { active_project } from "$lib/store";
     import * as Dialog from "$lib/components/ui/dialog";
     import { fade } from "svelte/transition";
+    import { LoaderCircle } from "lucide-svelte";
 
     /**
      * @type {any[]}
@@ -16,20 +17,28 @@
     let fileCount = 0;
     let filesLeft = 0;
     let selectProjectDialogOpen = false;
+    let indexing = false;
 
     onMount(() => {
         refresh();
+
         window.Echo.channel("ingest").listen("IngestIndexedEvent", (e) => {
             refresh();
+        });
+        window.Echo.channel("ingest").listen("IndexEvent", (e) => {
+            indexing = e.indexing;
         });
 
         window.Echo.channel("ingest").listen("IngestStartedEvent", (e) => {
             toast.info(e.message);
             fileCount = e.fileCount;
+            filesLeft = e.fileCount;
             ingesting = true;
         });
 
         window.Echo.channel("ingest").listen("FileIngestedEvent", (e) => {
+            ingesting = true;
+            fileCount = e.totalFileCount;
             removeIngestedFile(e.file.id);
         });
 
@@ -37,6 +46,15 @@
             "IngestCompleteEvent",
             (/** @type {{ message: string; }} */ e) => {
                 toast.success(e.message);
+                refresh();
+                ingesting = false;
+            },
+        );
+
+        window.Echo.channel("ingest").listen(
+            "IngestErrorEvent",
+            (/** @type {{ message: string;}} */ e) => {
+                toast.error(e.message);
                 refresh();
                 ingesting = false;
             },
@@ -51,6 +69,7 @@
         ingestData.some((file, i) => {
             if (file.id === id) {
                 index = i;
+
                 return true;
             }
             return false;
@@ -70,6 +89,10 @@
             .get("/ingest")
             .then((r) => {
                 ingestData = r.data.ingest_data;
+                fileCount = r.data.ingest_file_count;
+                filesLeft = ingestData.length;
+                ingesting = r.data.ingesting;
+                indexing = r.data.indexing;
             })
             .catch((e) => {
                 toast.error(e.response.data.message);
@@ -130,10 +153,12 @@
             {#if !ingesting}
                 <Button
                     class="grow"
-                    disabled={ingesting || !ingestData.length}
+                    disabled={ingesting || !ingestData.length || indexing}
                     on:click={prepareIngest}
                 >
-                    {#if $active_project}
+                    {#if indexing}
+                        <span class="flex items-center gap-x-2"><LoaderCircle class="h-4 w-4 animate-spin" /> Indexing</span>
+                    {:else if $active_project}
                         <span>
                             Ingest into {$active_project.title}
                         </span>

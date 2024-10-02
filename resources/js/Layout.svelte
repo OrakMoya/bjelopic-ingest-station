@@ -28,11 +28,11 @@
         </div>
 
         <div class="flex flex-col justify-between grow">
-            <div class="flex w-full overflow-y-scroll">
-                <div
-                    class="h-full grow max-w-screen-xl mx-auto px-4 py-4 box-border"
-                >
-                    <slot />
+            <div class="flex w-full relative grow">
+                <div class="absolute w-full h-full">
+                    <div class="h-full w-full  grow mx-auto px-4 py-4 box-border">
+                        <slot />
+                    </div>
                 </div>
             </div>
             <div

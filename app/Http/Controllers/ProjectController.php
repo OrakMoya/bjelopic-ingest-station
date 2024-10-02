@@ -53,10 +53,9 @@ class ProjectController extends Controller
     /**
      * Display the specified resource.
      */
-    public function show(string $id)
+    public function show(Project $project)
     {
         $returnData = [];
-        $project = Project::find($id);
         $returnData['project'] = $project;
         return Inertia::render('Project/Overview', $returnData);
     }

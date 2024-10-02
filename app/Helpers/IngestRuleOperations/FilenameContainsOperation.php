@@ -9,7 +9,8 @@ use Illuminate\Support\Str;
 class FilenameContainsOperation implements IngestRuleOperation{
     public function handle(File $file, $criteria, $opts): bool|string
     {
-        return Str::contains($file->filename, $criteria);
+        $result = Str::contains($file->filename, $criteria);
+        return $result;
     }
 
 }

@@ -9,14 +9,14 @@ class IngestRule
 {
     /**
      * @param mixed $criteria
-     * @param mixed $opts
+     * @param array<string, mixed> $opts
      * @param array<int,IngestRule> $nextRules
      */
     public function __construct(
         private IngestRuleOperation $operation,
         private $criteria,
         private array $nextRules,
-        private $opts
+        private array $opts
     ) {}
 
     public function handle(File $file): string|bool
@@ -25,7 +25,10 @@ class IngestRule
 
         if (is_bool($result) && $result) {
             foreach ($this->nextRules as $nextRule) {
-                return $nextRule->handle($file);
+                $nextRuleResult = $nextRule->handle($file);
+                if(gettype($nextRuleResult) == 'string'){
+                    return $nextRuleResult;
+                }
             }
         }
         return $result;

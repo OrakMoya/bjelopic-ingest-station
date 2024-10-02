@@ -12,7 +12,9 @@
         "laravel/reverb": "^1.0",
         "laravel/tinker": "^2.9",
         "miljar/php-exif": "^0.6.5",
-        "spatie/temporary-directory": "^2.2"
+        "predis/predis": "^2.2",
+        "spatie/temporary-directory": "^2.2",
+        "vend/resque": "*"
     },
     "require-dev": {
         "barryvdh/laravel-debugbar": "^3.14",

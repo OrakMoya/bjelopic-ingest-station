@@ -18,7 +18,8 @@ return new class extends Migration
             $table->string('absolute_path')->unique();
             $table->string('display_name')->unique();
             $table->enum('type', ['storage', 'ingest'])->default('storage');
-            $table->boolean('is_alive')->default('false');
+            $table->boolean('is_alive')->default(true);
+            $table->boolean('disable_index')->default(false);
         });
     }
 
