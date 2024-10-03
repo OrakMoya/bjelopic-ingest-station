@@ -61,15 +61,22 @@ class IngestRuleFactory
         foreach ($rules as $rule) {
             $operationString = Str::of($rule['operation'])->trim();
             $criteriaString = Str::of($rule['criteria'])->trim();
+            $labelString = Str::of($rule['label'] ?? '')->trim();
             $nextRules = $rule['next'] ?? [];
             $opts = $rule['opts'] ?? [];
 
             if ($criteriaString->isEmpty()) {
-                $msg = 'Invalid ingest rule criteria.';
+                $msg = Str::of($labelString . ' ' . 'Invalid ingest rule criteria.')->trim();
                 throw new IngestRuleCriteriaException($msg);
             }
 
-            $ingestOperation = IngestRuleFactory::processIngestRuleOperation($operationString->toString());
+            try {
+
+                $ingestOperation = IngestRuleFactory::processIngestRuleOperation($operationString->toString());
+            } catch (InvalidIngestOperationException $th) {
+                $msg = Str::of($labelString . ' ' . $th->getMessage())->trim();
+                throw new InvalidIngestOperationException($msg);
+            }
 
             array_push($arrayOfRuleObjects, new IngestRule(
                 $ingestOperation,

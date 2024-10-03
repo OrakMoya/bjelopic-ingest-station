@@ -2,6 +2,7 @@
 
 <script>
     import { Button } from "$lib/components/ui/button";
+    import Combobox from "$lib/components/ui/combobox/combobox.svelte";
     import { Input } from "$lib/components/ui/input";
     import { TrashIcon } from "lucide-svelte";
     import { createEventDispatcher } from "svelte";
@@ -11,6 +12,7 @@
      */
     export let rule;
 
+    export let label = "1";
 
     /**
      * @type {any[]}
@@ -34,6 +36,7 @@
             operation: rule.operation,
             criteria: rule.criteria,
             next: rule.operation !== "save" ? nextRules : [],
+            label: label,
         };
     };
 
@@ -53,25 +56,25 @@
     function operationChanged() {
         dispatch("operationChanged", rule.operation);
     }
+
+    let comboboxValues = [
+        { value: "mimetypeIs", label: "Mimetype is" },
+        { value: "filenameContains", label: "Filename contains" },
+        { value: "save", label: "Save to" },
+    ];
 </script>
 
-<div class="flex p-4 border border-accent rounded-xl gap-4 w-fit bg-background">
+<div class="flex px-4 py-6 pr-1 border border-accent rounded-xl gap-4 w-fit backdrop-blur backdrop-brightness-[120%] relative"
+style="--tw-backdrop-blur: blur(2px);">
+    <div class="absolute top-[2px] left-[6px] opacity-50 italic text-sm">{label}</div>
     <div class="flex gap-2 items-center">
         <div class="flex gap-2">
             <div class="flex flex-col w-full gap-2">
-                <div class="flex items-center gap-x-2">
-                    <span class="font-bold">Operation: </span>
-                    <Input
-                        class="w-fit"
-                        bind:value={rule.operation}
-                        on:input={operationChanged}
-                    />
-                </div>
-                <div class="flex items-center gap-x-2">
-                    <span class="font-bold"
-                        >{rule.operation == "save" ? "Location" : "Criteria"}:
-                    </span><Input bind:value={rule.criteria} />
-                </div>
+                <Combobox
+                    bind:value={rule.operation}
+                    comboValues={comboboxValues}
+                />
+                <Input bind:value={rule.criteria} />
             </div>
             <div class="flex flex-col">
                 <Button
@@ -93,6 +96,7 @@
                             rule.next = rule.next.toSpliced(i, 1);
                             children = children.toSpliced(i, 1);
                         }}
+                        label={label+":"+(i+1)}
                         bind:rule={nextRule}
                     />
                 {/each}
