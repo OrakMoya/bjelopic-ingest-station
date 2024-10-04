@@ -19,7 +19,10 @@ class ProjectIngestController extends Controller
             ->where('project_id', '=', $project->id)
             ->get()->first();
 
-        $rules = Utils::jsonDecode($ruleModel->rules);
+        $rules = [];
+        if ($ruleModel) {
+            $rules = Utils::jsonDecode($ruleModel->rules);
+        }
 
         $returnData['project'] = $project;
         $returnData['rules'] = $rules;
@@ -30,18 +33,28 @@ class ProjectIngestController extends Controller
     {
         $rule = IngestRule::select('*')
             ->where('project_id', '=', $project->id)
-            ->get()->first();
+            ->first();
 
         try {
             IngestRuleFactory::create($request->rules);
         } catch (\App\Exceptions\InvalidIngestOperationException $th) {
             return redirect()->back()->withErrors(['ingestOperation' => $th->getMessage()]);
-        } catch(\App\Exceptions\IngestRuleCriteriaException $th){
+        } catch (\App\Exceptions\IngestRuleCriteriaException $th) {
             return redirect()->back()->withErrors(['ingestCriteria' => $th->getMessage()]);
         }
 
-        $rule->rules = Utils::jsonEncode($request->rules);
-        $rule->save();
+        if (!$rule) {
+            $rule = IngestRule::create(
+                [
+                    'project_id' => $project->id,
+                    'rules' => Utils::jsonEncode($request->rules)
+                ]
+            );
+        } else {
+            $rule->rules = Utils::jsonEncode($request->rules);
+            $rule->save();
+        }
+
 
         return redirect()->back();
     }

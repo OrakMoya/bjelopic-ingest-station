@@ -7,6 +7,8 @@
     import { useForm, page } from "@inertiajs/svelte";
     import { onDestroy, onMount } from "svelte";
     import { RefreshCcw } from "lucide-svelte";
+    import MoveUpDown from "./MoveUpDown.svelte";
+    import { fade } from "svelte/transition";
 
     /**
      * @type {{ id: number; title: string; } }
@@ -18,48 +20,32 @@
      * @type {any[]}
      */
     export let rules;
-    let initialRules = rules;
+    /**
+     * @type {Array<IngestRuleTree>}
+     */
     let children = [];
 
-    function compile() {
-        /**
-         * @type {any[]}
-         */
-        let compiledRules = [];
-        children = children.reduce((prev, cur) => {
-            if (cur) prev.push(cur);
-            return prev;
-        }, []);
-        console.log(children);
-        children.forEach((element) => {
-            if (element) {
-                compiledRules.push(element.compileRules());
-            }
-        });
-        return compiledRules;
-    }
+
     let form = useForm({
-        rules: null,
+        rules: rules,
     });
 
     function save() {
-        $form.rules = compile();
-        $form.post("/projects/" + project.id + "/ingestrules", {
-            onError: (e) => {
-                rules = $form.rules;
-            },
-        });
+        $form.post("/projects/" + project.id + "/ingestrules");
     }
 
+    /**
+     * @param {number} i
+     */
     function addRootChild(i) {
-        rules = [
-            ...rules.slice(0, i + 1),
+        $form.rules = [
+            ...$form.rules.slice(0, i + 1),
             {
                 operation: "save",
                 criteria: "Other",
                 next: [],
             },
-            ...rules.slice(i + 1),
+            ...$form.rules.slice(i + 1),
         ];
     }
 
@@ -75,11 +61,27 @@
         cancelAnimationFrame(frame);
     });
 
-    onMount(() => {
-        children.forEach((element) => {
-            console.log(element);
-        });
-    });
+    /**
+     * @param {number} i
+     */
+    function moveRuleUp(i) {
+        if (i === 0) return;
+        let previousRule = $form.rules.at(i - 1);
+        let thisRule = $form.rules.at(i);
+        $form.rules[i - 1] = thisRule;
+        $form.rules[i] = previousRule;
+    }
+    /**
+     * @param {number} i
+     */
+    function moveRuleDown(i) {
+        if (i === $form.rules.length - 1) return;
+        let previousRule = $form.rules.at(i + 1);
+        let thisRule = $form.rules.at(i);
+        $form.rules[i + 1] = thisRule;
+        $form.rules[i] = previousRule;
+    }
+
 </script>
 
 <Nav />
@@ -87,20 +89,21 @@
 <div class="flex flex-col w-full h-full">
     <div class="flex gap-x-2 items-center mb-2">
         <Button on:click={save}>Save</Button>
-        <Button on:click={() => (rules = initialRules)}><RefreshCcw class="w-4 h-4" /></Button>
+        <Button on:click={() => ($form.rules = rules)}
+            ><RefreshCcw class="w-4 h-4" /></Button
+        >
         {#if JSON.stringify($page.props.errors) !== "{}"}
             <span
                 class="text-sm px-4 py-2 box-content outline outline-1 rounded-md bg-destructive/50 outline-destructive"
-                >{$page.props.errors.ingestOperation ??
+                >Rule {$page.props.errors.ingestOperation ??
                     $page.props.errors.ingestCriteria}</span
             >
         {/if}
     </div>
-    <div class="w-full grow overflow-scroll">
+    <div class="w-full grow overflow-scroll flex flex-col">
         <div
-            class="flex gap-x-2"
-            style="background-image: url('/ingestRuleEditorBackground.png') ;
-background-attachment: scroll;"
+            class="flex gap-x-2 min-w-fit w-full grow min-h-fit"
+            style="background-image: url('/ingestRuleEditorBackground.png'); background-attachment: scroll;"
         >
             <div
                 class="min-w-10 min-h-full self-stretch flex flex-col justify-center bg-contain bg-repeat-y opacity-45"
@@ -109,8 +112,10 @@ background-attachment: scroll;"
                 background-position-y: {frame / 8}px ;
             "
             ></div>
-            <div class="flex flex-col gap-4 w-fit transition-all duration-500">
-                {#if !rules.length}
+            <div
+                class="flex flex-col gap-4 w-fit h-fit transition-all duration-500"
+            >
+                {#if !$form.rules.length}
                     <Button
                         on:click={() => addRootChild(0)}
                         variant="ghost"
@@ -118,22 +123,26 @@ background-attachment: scroll;"
                     >
                 {/if}
 
-                {#each rules as rule, i}
+                {#each $form.rules as rule, i }
                     <div class="flex flex-col w-fit gap-4">
-                        <IngestRuleTree
-                            label={i + 1}
-                            class="transition-all duration-500"
-                            bind:rule={rules[i]}
-                            bind:this={children[i]}
-                            on:deleteThis={() => {
-                                rules = rules.toSpliced(i, 1);
-                            }}
-                        />
+                        <div class="flex">
+                            <MoveUpDown
+                                on:moveUp={() => moveRuleUp(i)}
+                                on:moveDown={() => moveRuleDown(i)}
+                            />
+                            <IngestRuleTree
+                                label={(i + 1).toString()}
+                                bind:rule={$form.rules[i]}
+                                bind:this={children[i]}
+                                on:deleteThis={() => {
+                                    $form.rules = $form.rules.toSpliced(i, 1);
+                                }}
+                            />
+                        </div>
                         {#if rule.operation !== "save"}
                             <div
                                 class="flex flex-col justify-center transition-all duration-500"
                             >
-                                <!-- content here -->
                                 <Button
                                     on:click={() => addRootChild(i)}
                                     variant="ghost"

@@ -5,6 +5,7 @@ use App\Http\Controllers\IngestSidebarController;
 use App\Http\Controllers\ProjectController;
 use App\Http\Controllers\ProjectIngestController;
 use App\Http\Controllers\VolumeController;
+use Illuminate\Support\Facades\Redis;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -47,8 +48,6 @@ Route::get('/files/{path}', [FileExplorerController::class, 'index'])
 
 Route::get('/test', function () {
 
-    $reader = \PHPExif\Reader\Reader::factory(\PHPExif\Reader\Reader::TYPE_EXIFTOOL);
-    dd($reader->read('/home/orakmoya/out.wav'));
 
     return 0;
 });

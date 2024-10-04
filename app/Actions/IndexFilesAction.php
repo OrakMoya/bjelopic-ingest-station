@@ -30,6 +30,20 @@ class IndexFilesAction
 
             $filesInVolume = $disk->allFiles($path);
 
+            $tenSecondsAgo = Carbon::now()->subSeconds(10)->timestamp;
+            $filesInVolume = array_reduce($filesInVolume, function ($previous, $current) use ($volume, $tenSecondsAgo) {
+                $path = $volume->absolute_path . '/' . $current;
+                $mtime = filemtime($path);
+                $ctime = filectime($path);
+                if (
+                    $mtime < $tenSecondsAgo &&
+                    $ctime < $tenSecondsAgo
+                ) {
+                    array_push($previous, $current);
+                }
+                return $previous;
+            }, []);
+
 
             $missingFilesInDatabase = [];
             $extraFilesInDatabaseIds = [];
@@ -61,10 +75,13 @@ class IndexFilesAction
                 $exif = [];
                 $mimetype = mime_content_type($fullPath);
                 try {
-                    $exif = $reader->read($fullPath);
-                    $mimetype = $exif->getMimeType();
-                } catch (\Throwable) {
-                    Log::error('Error reading exif or mimetype of file ' . $fileInVolume);
+                    $exifType = $reader->read($fullPath);
+                    $exif['raw'] = $exifType->getRawData();
+                    $exif['data'] = $exifType->getData();
+                    $mimetype = $exifType->getMimeType();
+                } catch (\Throwable $th) {
+                    Log::error('Error reading exif or mimetype of file ' . $fullPath);
+                    Log::error($th->getMessage());
                 }
 
                 array_push(

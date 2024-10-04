@@ -5,10 +5,11 @@
     import * as Popover from "$lib/components/ui/popover";
     import { Button } from "$lib/components/ui/button";
     import { cn } from "$lib/utils.js";
-    import { tick } from "svelte";
+    import { createEventDispatcher, tick } from "svelte";
 
     export let comboValues: any[] = [];
     export let id = "";
+    const dispatch = createEventDispatcher();
 
     let open = false;
     export let value = "";
@@ -16,8 +17,7 @@
     let selectedValue = null;
 
     $: selectedValue =
-        comboValues.find((f) => f.value === value)?.label ??
-        "Select...";
+        comboValues.find((f) => f.value === value)?.label ?? "Select...";
 
     // We want to refocus the trigger button when the user selects
     // an item from the list so users can continue navigating the
@@ -27,6 +27,7 @@
         tick().then(() => {
             document.getElementById(triggerId)?.focus();
         });
+        dispatch("valueSelected");
     }
 </script>
 
@@ -60,7 +61,8 @@
                         <Check
                             class={cn(
                                 "mr-2 h-4 w-4",
-                                comboValue !== comboValue.value && "text-transparent",
+                                comboValue !== comboValue.value &&
+                                    "text-transparent",
                             )}
                         />
                         {comboValue.label}

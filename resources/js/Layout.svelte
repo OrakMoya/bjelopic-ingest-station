@@ -6,10 +6,6 @@
     import { Settings } from "lucide-svelte";
     import { ChevronUp } from "svelte-radix";
     import { toast } from "svelte-sonner";
-
-    window.Echo.channel("messages").listen("MessageSentEvent", (e) => {
-        toast.success(e.message);
-    });
 </script>
 
 <ModeWatcher />

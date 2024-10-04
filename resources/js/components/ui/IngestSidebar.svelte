@@ -5,8 +5,9 @@
     import { Button } from "$lib/components/ui/button";
     import { active_project } from "$lib/store";
     import * as Dialog from "$lib/components/ui/dialog";
-    import { fade } from "svelte/transition";
+    import { scale } from "svelte/transition";
     import { LoaderCircle } from "lucide-svelte";
+    import {echo} from "$lib/echo";
 
     /**
      * @type {any[]}
@@ -135,16 +136,18 @@
         <Dialog.Content></Dialog.Content>
     </Dialog.Root>
     <section class="w-full h-full flex flex-col">
-        <div class="p-4 border-b border-accent mb-2">
+        <div class="p-4 border-b border-accent">
             <span class="text-xl">Ingest</span>
         </div>
 
         <div class="p-4 overflow-x-clip overflow-y-scroll grow max-w-56">
-            {#each ingestData as ingestItem}
-                <div class="truncate">
-                    {ingestItem.filename}
-                </div>
-            {/each}
+            <div class="min-h-fit transition-all grid grid-cols-1" >
+                {#each ingestData as ingestItem (ingestItem.id)}
+                    <div class="truncate transition-all duration-500" >
+                        {ingestItem.filename}
+                    </div>
+                {/each}
+            </div>
         </div>
 
         <div
@@ -157,7 +160,9 @@
                     on:click={prepareIngest}
                 >
                     {#if indexing}
-                        <span class="flex items-center gap-x-2"><LoaderCircle class="h-4 w-4 animate-spin" /> Indexing</span>
+                        <span class="flex items-center gap-x-2"
+                            ><LoaderCircle class="h-4 w-4 animate-spin" /> Indexing</span
+                        >
                     {:else if $active_project}
                         <span>
                             Ingest into {$active_project.title}
@@ -171,7 +176,7 @@
                     class="grow relative text-sm bg-muted-foreground px-4 py-2 shadow rounded-md text-primary-foreground font-medium text-center overflow-clip"
                 >
                     <div
-                        class="absolute left-0 top-0 h-full bg-primary"
+                        class="absolute left-0 top-0 h-full bg-primary transition-all duration-500"
                         style="width: {(1 - filesLeft / fileCount) * 100}%;"
                     ></div>
                     <span class="relative"> Ingesting </span>

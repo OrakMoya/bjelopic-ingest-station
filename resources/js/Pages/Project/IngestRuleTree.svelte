@@ -3,12 +3,14 @@
 <script>
     import { Button } from "$lib/components/ui/button";
     import Combobox from "$lib/components/ui/combobox/combobox.svelte";
-    import { Input } from "$lib/components/ui/input";
     import { TrashIcon } from "lucide-svelte";
     import { createEventDispatcher } from "svelte";
+    import Decider from "./IngestRuleInputs/Decider.svelte";
+    import MoveUpDown from "./MoveUpDown.svelte";
+    import {fade} from "svelte/transition";
 
     /**
-     * @type {{ next: any[]; operation: string; criteria: string; }}
+     * @type {{ next: any[]; operation: string; criteria: string; counter: number; }}
      */
     export let rule;
 
@@ -53,10 +55,6 @@
         dispatch("deleteThis");
     }
 
-    function operationChanged() {
-        dispatch("operationChanged", rule.operation);
-    }
-
     let comboboxValues = [
         { value: "mimetypeIs", label: "Mimetype is" },
         { value: "filenameContains", label: "Filename contains" },
@@ -64,17 +62,25 @@
     ];
 </script>
 
-<div class="flex px-4 py-6 pr-1 border border-accent rounded-xl gap-4 w-fit backdrop-blur backdrop-brightness-[120%] relative"
-style="--tw-backdrop-blur: blur(2px);">
-    <div class="absolute top-[2px] left-[6px] opacity-50 italic text-sm">{label}</div>
+<div
+    class="flex px-4 py-6 pr-1 border border-accent rounded-xl gap-4 w-fit backdrop-blur backdrop-brightness-[120%] relative"
+    style="--tw-backdrop-blur: blur(2px);"
+>
+    <div class="absolute top-[2px] left-[6px] opacity-50 italic text-sm">
+        {label}
+    </div>
     <div class="flex gap-2 items-center">
         <div class="flex gap-2">
             <div class="flex flex-col w-full gap-2">
                 <Combobox
                     bind:value={rule.operation}
                     comboValues={comboboxValues}
+                    on:valueSelected={() => (rule.criteria = "")}
                 />
-                <Input bind:value={rule.criteria} />
+                <Decider
+                    bind:value={rule.criteria}
+                    bind:operation={rule.operation}
+                />
             </div>
             <div class="flex flex-col">
                 <Button
@@ -90,19 +96,21 @@ style="--tw-backdrop-blur: blur(2px);">
         <div class="flex flex-col justify-center gap-2">
             {#if Array.isArray(rule.next) && rule.next.length > 0}
                 {#each rule.next as nextRule, i}
-                    <svelte:self
-                        bind:this={children[i]}
-                        on:deleteThis={() => {
-                            rule.next = rule.next.toSpliced(i, 1);
-                            children = children.toSpliced(i, 1);
-                        }}
-                        label={label+":"+(i+1)}
-                        bind:rule={nextRule}
-                    />
+                    <div class="flex">
+                        <MoveUpDown />
+                        <svelte:self
+                            bind:this={children[i]}
+                            on:deleteThis={() => {
+                                rule.next = rule.next.toSpliced(i, 1);
+                                children = children.toSpliced(i, 1);
+                            }}
+                            label={label + ":" + (i + 1)}
+                            bind:rule={nextRule}
+                        />
+                    </div>
                 {/each}
             {/if}
             {#if !(rule.next.at(rule.next.length - 1)?.operation === "save")}
-                <!-- content here -->
                 <div class="flex justify-center">
                     <Button
                         class="text-xl grow"

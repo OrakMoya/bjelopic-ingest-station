@@ -68,19 +68,22 @@ class IngestAction
             $batch = Bus::batch($jobs)
                 ->before(
                     function () use ($totalIngestFileCount) {
-                        Cache::put('ingesting', true);
+                        Cache::put('ingest:running', true);
+                        Cache::put('ingest:filecount', $totalIngestFileCount);
                         IngestStartedEvent::dispatch('Ingest started!', $totalIngestFileCount);
                     }
                 )
                 ->catch(
                     function (Batch $batch, Throwable $e) {
-                        Cache::forget('ingesting');
+                        Cache::forget('ingest:running');
+                        Cache::forget('ingest:filecount');
                         IngestErrorEvent::dispatch($e->getMessage());
                     }
                 )
                 ->then(
                     function () {
-                        Cache::forget('ingesting');
+                        Cache::forget('ingest:running');
+                        Cache::forget('ingest:filecount');
                         IngestCompleteEvent::dispatch('Ingest complete!');
                     }
                 )
