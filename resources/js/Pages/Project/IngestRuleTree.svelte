@@ -61,6 +61,27 @@
         { value: "filenameContains", label: "Filename contains" },
         { value: "save", label: "Save to" },
     ];
+
+    /**
+     * @param {number} i
+     */
+    function moveRuleUp(i) {
+        if (i === 0) return;
+        let previousRule = rule.next.at(i - 1);
+        let thisRule = rule.next.at(i);
+        rule.next[i - 1] = thisRule;
+        rule.next[i] = previousRule;
+    }
+    /**
+     * @param {number} i
+     */
+    function moveRuleDown(i) {
+        if (i === rule.next.length - 1) return;
+        let previousRule = rule.next.at(i + 1);
+        let thisRule = rule.next.at(i);
+        rule.next[i + 1] = thisRule;
+        rule.next[i] = previousRule;
+    }
 </script>
 
 <div
@@ -72,6 +93,14 @@
     </div>
     <div class="flex gap-2 items-center">
         <div class="flex gap-2">
+            <div class="flex flex-col">
+                <Button
+                    on:click={deleteThis}
+                    class="h-full"
+                    variant="destructive"
+                    ><TrashIcon class="w-4 h-4" />
+                </Button>
+            </div>
             <div class="flex flex-col w-full gap-2">
                 <Combobox
                     bind:value={rule.operation}
@@ -84,14 +113,6 @@
                     bind:opts={rule.opts}
                 />
             </div>
-            <div class="flex flex-col">
-                <Button
-                    on:click={deleteThis}
-                    class="h-full"
-                    variant="destructive"
-                    ><TrashIcon class="w-4 h-4" />
-                </Button>
-            </div>
         </div>
     </div>
     {#if rule.operation !== "save"}
@@ -99,7 +120,10 @@
             {#if Array.isArray(rule.next) && rule.next.length > 0}
                 {#each rule.next as nextRule, i}
                     <div class="flex">
-                        <MoveUpDown />
+                        <MoveUpDown
+                            on:moveUp={() => moveRuleUp(i)}
+                            on:moveDown={() => moveRuleDown(i)}
+                        />
                         <svelte:self
                             bind:this={children[i]}
                             on:deleteThis={() => {
