@@ -1,5 +1,7 @@
 #!/bin/bash
 
+php artisan cache:clear
+
 session="bjelopic-ingest-station"
 
     tmux new-session -d -s $session
@@ -29,6 +31,10 @@ session="bjelopic-ingest-station"
 
     #Queue worker
     tmux new-window -t $session:7 -n 'Queue'
-    tmux send-keys -t $session:7 'php artisan queue:listen -v --timeout 600' C-m
+    tmux send-keys -t $session:7 'php artisan queue:work -v --timeout 600 --queue default' C-m
+
+
+    tmux split-window -t $session:7 -v
+    tmux send-keys -t $session:7 'php artisan queue:work -v --queue messages' C-m
 
 tmux attach-session -t $session:1

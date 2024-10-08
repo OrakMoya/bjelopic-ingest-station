@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Cache;
 use App\Models\File;
+use Illuminate\Support\Facades\Log;
 use Throwable;
 
 class IngestFilesJob implements ShouldQueue
@@ -17,7 +18,7 @@ class IngestFilesJob implements ShouldQueue
     use Queueable, Batchable;
 
     public $retryAfter = 300;
-    public $tries = 2;
+    public $tries = 1;
 
     /**
      * Create a new job instance.
@@ -29,7 +30,8 @@ class IngestFilesJob implements ShouldQueue
         public array $files,
         public array $newPaths,
         public int $totalFileCount = 0
-    ) {}
+    ) {
+    }
 
     /**
      * Execute the job.
@@ -41,7 +43,12 @@ class IngestFilesJob implements ShouldQueue
             return;
         }
 
-        (new IngestAction())->performIngest($this->project, $this->files, $this->newPaths, $this->totalFileCount);
+        try {
+            (new IngestAction())->performIngest($this->project, $this->files, $this->newPaths, $this->totalFileCount);
+        } catch (\Throwable $th) {
+            Log::error($th->getMessage());
+            throw $th;
+        }
     }
 
     public function failed(?Throwable $exception): void

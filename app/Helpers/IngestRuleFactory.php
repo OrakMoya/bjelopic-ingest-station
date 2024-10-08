@@ -4,13 +4,16 @@ namespace App\Helpers;
 
 use App\Exceptions\IngestRuleCriteriaException;
 use App\Exceptions\InvalidIngestOperationException;
+use App\Helpers\IngestRuleOperations\ExifTagIsOperation;
 use App\Helpers\IngestRuleOperations\FilenameContainsOperation;
+use App\Helpers\IngestRuleOperations\ContainsExifTagOperation;
 use App\Helpers\IngestRuleOperations\MimetypeIsOperation;
 use App\Helpers\IngestRuleOperations\SaveOperation;
 use App\Helpers\IngestRule;
 use App\Interfaces\IngestRuleOperation;
 use GuzzleHttp\Utils;
 use Illuminate\Support\Str;
+use Illuminate\Support\Stringable;
 
 /*
  * Ingest rule format:
@@ -71,6 +74,12 @@ class IngestRuleFactory
             }
 
             try {
+            IngestRuleFactory::checkOptions($operationString, $opts);
+            } catch (InvalidIngestOperationException $th) {
+                throw new InvalidIngestOperationException($labelString . ' ' . $th->getMessage());
+            }
+
+            try {
 
                 $ingestOperation = IngestRuleFactory::processIngestRuleOperation($operationString->toString());
             } catch (InvalidIngestOperationException $th) {
@@ -92,11 +101,35 @@ class IngestRuleFactory
     private static function processIngestRuleOperation(string $operation): IngestRuleOperation
     {
 
+
         return match ($operation) {
             'filenameContains' => new FilenameContainsOperation(),
             'mimetypeIs' => new MimetypeIsOperation(),
+            'containsExifTag' => new ContainsExifTagOperation(),
+            'exifTagIs' => new ExifTagIsOperation(),
             'save' => new SaveOperation(),
             default => throw new InvalidIngestOperationException("Invalid operation: " . $operation)
         };
+    }
+
+    private static function checkOptions(string $operation, $opts): void
+    {
+        switch ($operation) {
+            case "exifTagIs":
+                if (
+                    isset($opts['tag'])
+                ) {
+                    if (
+                        gettype($opts['tag']) === 'string' &&
+                        Str::of($opts['tag'])->isNotEmpty()
+                    ) {
+                        break;
+                    }
+                    throw new InvalidIngestOperationException("Invalid tag: " . $opts['tag']);
+                }
+                throw new InvalidIngestOperationException("Missing tag.");
+            default:
+                break;
+        }
     }
 }

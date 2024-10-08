@@ -2,8 +2,6 @@
     import { Link } from "@inertiajs/svelte";
     import { portal } from "svelte-portal";
     import {active_project} from "$lib/store";
-    import { Button } from "$lib/components/ui/button";
-    import {echo, pusher} from "$lib/echo";
 
 
     let project = $active_project;
@@ -15,11 +13,8 @@
         {project?.title ?? 'Unknown'}
     </div>
     <div class="px-4 flex flex-col">
-        <Link href="/projects/{project.id}">Overview</Link>
-        <Link href="/projects/{project.id}/ingestrules">Ingest rules</Link>
-    <Button on:click={()=>{
-
-    }}>Send message</Button>
+        <Link href="/projects/{project?.id}">Overview</Link>
+        <Link href="/projects/{project?.id}/ingestrules">Ingest rules</Link>
     </div>
 </nav>
 

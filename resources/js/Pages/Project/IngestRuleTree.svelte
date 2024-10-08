@@ -7,10 +7,9 @@
     import { createEventDispatcher } from "svelte";
     import Decider from "./IngestRuleInputs/Decider.svelte";
     import MoveUpDown from "./MoveUpDown.svelte";
-    import {fade} from "svelte/transition";
 
     /**
-     * @type {{ next: any[]; operation: string; criteria: string; counter: number; }}
+     * @type {{ next: any[]; operation: string; criteria: string; opts: any[]; }}
      */
     export let rule;
 
@@ -28,7 +27,7 @@
 
     export const compileRules = () => {
         /**
-         * @type {{ next: any[]; operation: string; criteria: string; }[]}
+         * @type {{ next: any[]; operation: string; criteria: string; opts: any[]; }[]}
          */
         let nextRules = [];
         children.forEach((element) => {
@@ -57,6 +56,8 @@
 
     let comboboxValues = [
         { value: "mimetypeIs", label: "Mimetype is" },
+        { value: "containsExifTag", label: "Contains EXIF tag" },
+        { value: "exifTagIs", label: "EXIF tag is" },
         { value: "filenameContains", label: "Filename contains" },
         { value: "save", label: "Save to" },
     ];
@@ -80,6 +81,7 @@
                 <Decider
                     bind:value={rule.criteria}
                     bind:operation={rule.operation}
+                    bind:opts={rule.opts}
                 />
             </div>
             <div class="flex flex-col">

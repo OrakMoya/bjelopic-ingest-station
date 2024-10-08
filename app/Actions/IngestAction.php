@@ -15,12 +15,12 @@ use App\Models\File;
 use App\Models\IngestRule as IngestRuleModel;
 use App\Models\Project;
 use App\Models\Volume;
-use Concurrency;
 use GuzzleHttp\Utils;
 use Illuminate\Bus\Batch;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
@@ -38,8 +38,12 @@ class IngestAction
     public function run(Project $project): void
     {
         $volumeLock = Cache::lock('volumes');
+        $owner = $volumeLock->owner();
 
-        $volumeLock->block(5, function () use ($project) {
+        $volumeLock->block(5);
+
+        $jobs = null;
+        try {
             $ingestVolumes = $this->getAllIngestVolumes();
 
             foreach ($ingestVolumes as $ingestVolume) {
@@ -59,36 +63,47 @@ class IngestAction
 
 
             $ingestRules = $this->getIngestRules($project);
+            if (count($ingestRules) == 0) {
+                $msg = 'Project ' . $project->title . ' has no defined ingest rules. Aborting.';
+                IngestErrorEvent::dispatch($msg);
+
+                throw new IngestException($msg);
+            }
             $newProjectRelativePaths = $this->getNewProjectRelativeFilePaths(
                 $ingestRules,
                 $filesToIngest,
             );
 
             $jobs = $this->prepare($project, $filesToIngest, $newProjectRelativePaths);
-            $batch = Bus::batch($jobs)
-                ->before(
-                    function () use ($totalIngestFileCount) {
-                        Cache::put('ingest:running', true);
-                        Cache::put('ingest:filecount', $totalIngestFileCount);
-                        IngestStartedEvent::dispatch('Ingest started!', $totalIngestFileCount);
-                    }
-                )
-                ->catch(
-                    function (Batch $batch, Throwable $e) {
-                        Cache::forget('ingest:running');
-                        Cache::forget('ingest:filecount');
-                        IngestErrorEvent::dispatch($e->getMessage());
-                    }
-                )
-                ->then(
-                    function () {
-                        Cache::forget('ingest:running');
-                        Cache::forget('ingest:filecount');
-                        IngestCompleteEvent::dispatch('Ingest complete!');
-                    }
-                )
-                ->dispatch();
-        });
+        } catch (\Throwable $th) {
+            $volumeLock->release();
+            Log::error($th->getMessage());
+            throw $th;
+        }
+
+        $batch = Bus::batch($jobs)
+            ->before(
+                function () use ($totalIngestFileCount) {
+
+                    Cache::put('ingest:running', true);
+                    Cache::put('ingest:filecount', $totalIngestFileCount);
+                    IngestStartedEvent::dispatch('Ingest started!', $totalIngestFileCount);
+                }
+            )
+            ->catch(
+                function (Batch $batch, Throwable $e) {
+                    Cache::forget('ingest:running');
+                    Cache::forget('ingest:filecount');
+                    IngestErrorEvent::dispatch($e->getMessage());
+                }
+            )
+            ->finally(function () use ($owner) {
+                Cache::restoreLock('volumes', $owner)->release();
+                Cache::forget('ingest:running');
+                Cache::forget('ingest:filecount');
+                IngestCompleteEvent::dispatch('Ingest complete!');
+            })
+            ->dispatch();
     }
 
     /**
@@ -99,87 +114,88 @@ class IngestAction
      */
     public function performIngest(Project $project, array|Collection $files, array $newPaths, int $totalFileCount = 0): void
     {
-        $volumeLock = Cache::lock('volumes');
-        $volumeLock->block(5, function () use($project, $files, $newPaths, $totalFileCount) {
 
-            $projectVolume = $project->volume ?? Volume::find($project->volume_id)->first();
+        $projectVolume = $project->volume ?? Volume::find($project->volume_id)->first();
 
-            foreach ($files as $file) {
-                $projectRelativePath = $newPaths[$file->id];
-                assert($projectRelativePath);
+        foreach ($files as $file) {
+            $projectRelativePath = $newPaths[$file->id];
+            assert($projectRelativePath);
 
-                // Get current file's ingest volume
-                $ingestVolume = $file->volume ?? Volume::where('id', '=', $file->volume_id)->first();
-                if (is_null($ingestVolume)) {
-                    $msg = 'Failed getting ingest volume for file.';
-                    IngestErrorEvent::dispatch($msg);
+            // Get current file's ingest volume
+            $ingestVolume = $file->volume ?? Volume::where('id', '=', $file->volume_id)->first();
+            if (is_null($ingestVolume)) {
+                $msg = 'Failed getting ingest volume for file.';
+                IngestErrorEvent::dispatch($msg);
 
-                    throw new IngestException($msg);
+                throw new IngestException($msg);
+            }
+
+            $currentFullAbsolutePath = $ingestVolume->absolute_path . '/' . $file->path . '/' . $file->filename;
+            $newVolumeRelativePath = $project->title . '/' . $projectRelativePath;
+            $newFullVolumeRelativePath = $newVolumeRelativePath . '/' . $file->filename;
+            $newFullAbsolutePath = $projectVolume->absolute_path . '/' . $newFullVolumeRelativePath;
+
+            $writeSuccessful = $this->prepareTargetDirectory(
+                $projectVolume,
+                $newVolumeRelativePath
+            );
+            if (!$writeSuccessful) {
+                $msg = 'Failed creating directory \'' . $newVolumeRelativePath
+                    . '\' in volume ' . $projectVolume->display_name;
+
+                throw new InvalidVolumeException($msg);
+            }
+
+            // Ingested file aleady exists at the target path in project
+            $fileAlreadyExists = $projectVolume
+                ->getDiskInstance()
+                ->exists($newFullVolumeRelativePath);
+            if ($fileAlreadyExists) {
+                if (!file_exists($currentFullAbsolutePath) || !file_exists($newFullAbsolutePath)) {
+                    Log::error('Skipping file...');
+                    continue;
                 }
-
-                $currentFullAbsolutePath = $ingestVolume->absolute_path . '/' . $file->path . '/' . $file->filename;
-                $newVolumeRelativePath = $project->title . '/' . $projectRelativePath;
-                $newFullVolumeRelativePath = $newVolumeRelativePath . '/' . $file->filename;
-                $newFullAbsolutePath = $projectVolume->absolute_path . '/' . $newFullVolumeRelativePath;
-
-                $writeSuccessful = $this->prepareTargetDirectory(
-                    $projectVolume,
-                    $newVolumeRelativePath
-                );
-                if (!$writeSuccessful) {
-                    $msg = 'Failed creating directory \'' . $newVolumeRelativePath
-                        . '\' in volume ' . $projectVolume->display_name;
-
-                    throw new InvalidVolumeException($msg);
-                }
-
-                // Ingested file aleady exists at the target path in project
-                $fileAlreadyExists = $projectVolume
-                    ->getDiskInstance()
-                    ->exists($newFullVolumeRelativePath);
-                if ($fileAlreadyExists) {
-                    $originalHash = hash_file('md5', $currentFullAbsolutePath);
-                    $newHash = hash_file('md5', $newFullAbsolutePath);
-                    if ($originalHash != $newHash) {
-                        Log::info('File already exists but isnt equal. Recopying...');
-                        unlink($newFullAbsolutePath);
-                        $fileAlreadyExists = false;
-                    } else {
-                        Log::info('File already exists and is equal. Skipping...');
-                        unlink($currentFullAbsolutePath);
-                    }
-                }
-
-                // This gets checked again because the code block above may modify it
-                if (!$fileAlreadyExists) {
-                    $moveSuccessful = $this->moveFile($currentFullAbsolutePath, $newFullAbsolutePath);
-                    if (!$moveSuccessful) {
-                        $msg = 'Failed moving file ' . $file->filename .
-                            ' to volume  ' . $projectVolume->display_name;
-
-                        IngestErrorEvent::dispatch($msg);
-                        throw new IngestException($msg);
-                    }
-                }
-
-                try {
-                    // Update file in database to point to new location
-                    $file->path = $newVolumeRelativePath;
-                    $file->volume_id = $projectVolume->id;
-                    $file->save();
-                } catch (\Throwable) {
-                    // This is most likely caused by the file already being indexed
-                    // by the time this gets ran so we just delete the old
-                    // file's row in the database.
-                    $file->delete();
-                }
-                if ($totalFileCount) {
-                    FileIngestedEvent::dispatch($file, $totalFileCount);
+                $originalHash = hash_file('md5', $currentFullAbsolutePath);
+                $newHash = hash_file('md5', $newFullAbsolutePath);
+                if ($originalHash != $newHash) {
+                    Log::info('File already exists but isnt equal. Recopying...');
+                    unlink($newFullAbsolutePath);
+                    $fileAlreadyExists = false;
                 } else {
-                    FileIngestedEvent::dispatch($file, count($files));
+                    Log::info('File already exists and is equal. Skipping...');
+                    unlink($currentFullAbsolutePath);
                 }
             }
-        });
+
+            // This gets checked again because the code block above may modify it
+            if (!$fileAlreadyExists) {
+                $moveSuccessful = $this->moveFile($currentFullAbsolutePath, $newFullAbsolutePath);
+                if (!$moveSuccessful) {
+                    $msg = 'Failed moving file ' . $file->filename .
+                        ' to volume  ' . $projectVolume->display_name;
+
+                    IngestErrorEvent::dispatch($msg);
+                    throw new IngestException($msg);
+                }
+            }
+
+            try {
+                // Update file in database to point to new location
+                $file->path = $newVolumeRelativePath;
+                $file->volume_id = $projectVolume->id;
+                $file->save();
+            } catch (\Throwable) {
+                // This is most likely caused by the file already being indexed
+                // by the time this gets ran so we just delete the old
+                // file's row in the database.
+                $file->delete();
+            }
+            if ($totalFileCount) {
+                FileIngestedEvent::dispatch($file, $totalFileCount);
+            } else {
+                FileIngestedEvent::dispatch($file, count($files));
+            }
+        }
     }
 
 
@@ -192,13 +208,13 @@ class IngestAction
      * @param callable|null $callback
      * @return string
      */
-    public function getNewProjectRelativeFilePath(array $ingestRules, File|int $file, callable|null $callback = null): string
+    public function getNewProjectRelativeFilePath(array $ingestRules, File|int $file, callable|null $callback = null, bool $broadcast = true): string
     {
         assert($file->filename);
         assert($file->path);
         assert($file->mimetype);
 
-        $newProjectRelativePath = null;
+        $newProjectRelativePath = false;
 
         foreach ($ingestRules as $ingestRule) {
             $newProjectRelativePath = $ingestRule->handle($file);
@@ -213,7 +229,9 @@ class IngestAction
         if (is_bool($newProjectRelativePath) && !$newProjectRelativePath) {
             $msg = 'File ' . $file->filename . ' matches no rules. Aborting ingest.';
 
-            IngestErrorEvent::dispatch($msg);
+            if ($broadcast) {
+                IngestErrorEvent::dispatch($msg);
+            }
             throw new IngestException($msg);
         }
 
@@ -222,7 +240,10 @@ class IngestAction
         $ingestVolume = $file->volume ?? Volume::where('id', '=', $file->volume_id)->first();
         if (is_null($ingestVolume)) {
             $msg = 'Failed getting ingest volume for file.';
-            IngestErrorEvent::dispatch($msg);
+
+            if ($broadcast) {
+                IngestErrorEvent::dispatch($msg);
+            }
 
             throw new IngestException($msg);
         }

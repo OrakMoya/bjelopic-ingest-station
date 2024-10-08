@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\FileExplorerController;
+use App\Http\Controllers\IngestDryRunController;
 use App\Http\Controllers\IngestSidebarController;
 use App\Http\Controllers\ProjectController;
 use App\Http\Controllers\ProjectIngestController;
@@ -38,9 +39,16 @@ Route::post('/projects/{project}/ingestrules', [ProjectIngestController::class, 
 
 Route::get('/ingest', [IngestSidebarController::class, 'index'])
     ->name('ingest');
+Route::get('/ingest/{file}', [IngestSidebarController::class, 'show'])
+    ->name('ingest.details');
 
 Route::post('/ingest', [IngestSidebarController::class, 'store'])
     ->name('ingest.start');
+
+Route::get('/ingest/dryrun/{project}/{file}', [IngestDryRunController::class, 'show'])
+    ->name('ingest.dryrun.forfile');
+Route::get('/ingest/dryrun/{project}', [IngestDryRunController::class, 'index'])
+    ->name('ingest.dryrun');
 
 
 Route::get('/files/{path}', [FileExplorerController::class, 'index'])

@@ -81,14 +81,13 @@
         $form.rules[i + 1] = thisRule;
         $form.rules[i] = previousRule;
     }
-
 </script>
 
 <Nav />
 
 <div class="flex flex-col w-full h-full">
     <div class="flex gap-x-2 items-center mb-2">
-        <Button on:click={save}>Save</Button>
+        <Button on:click={save} >Save</Button>
         <Button on:click={() => ($form.rules = rules)}
             ><RefreshCcw class="w-4 h-4" /></Button
         >

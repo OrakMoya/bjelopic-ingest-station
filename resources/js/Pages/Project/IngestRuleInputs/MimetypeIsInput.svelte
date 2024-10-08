@@ -12,6 +12,11 @@
         {value: 'image/webp', label: 'image/webp'},
         {value: 'image/jpeg', label: 'image/jpeg'},
 
+        {value: 'audio/*', label: 'audio/*'},
+        {value: 'audio/mpeg', label: 'audio/mpeg'},
+        {value: 'audio/wav', label: 'audio/wav'},
+        {value: 'audio/flac', label: 'audio/flac'},
+
         {value: 'application/*', label: 'application/*'},
         {value: 'application/pdf', label: 'application/pdf'},
 

@@ -5,9 +5,8 @@
     import { Button } from "$lib/components/ui/button";
     import { active_project } from "$lib/store";
     import * as Dialog from "$lib/components/ui/dialog";
-    import { scale } from "svelte/transition";
-    import { LoaderCircle } from "lucide-svelte";
-    import {echo} from "$lib/echo";
+    import { LoaderCircle, LoaderIcon, ViewIcon } from "lucide-svelte";
+    import FileDetailsDialog from "./FileDetailsDialog.svelte";
 
     /**
      * @type {any[]}
@@ -19,11 +18,17 @@
     let filesLeft = 0;
     let selectProjectDialogOpen = false;
     let indexing = false;
+    /**
+     * @type {any[]}
+     */
+    let components = [];
+
+    let pathPreviewsLoaded = false;
 
     onMount(() => {
         refresh();
 
-        window.Echo.channel("ingest").listen("IngestIndexedEvent", (e) => {
+        window.Echo.channel("ingest").listen("IngestIndexedEvent", () => {
             refresh();
         });
         window.Echo.channel("ingest").listen("IndexEvent", (e) => {
@@ -60,6 +65,12 @@
                 ingesting = false;
             },
         );
+
+        window.Echo.channel("ingest").listen("IngestRulesUpdatedEvent", () => {
+            if (pathPreviewsLoaded) {
+                getAllTargetPaths();
+            }
+        });
     });
 
     /**
@@ -123,29 +134,104 @@
                 });
         });
     }
+
+    /**
+     * @type {Promise<void> | null}
+     */
+    let pathPreviewsPromise = null;
+    let errorState = false;
+    let previewsLoadedForProjectId = -1;
+
+    function getAllTargetPaths() {
+        if (!$active_project) return;
+        pathPreviewsPromise = axios
+            .get("/ingest/dryrun/" + $active_project.id)
+            .then((r) => {
+                errorState = false;
+                previewsLoadedForProjectId = $active_project.id;
+                components.forEach((component) => {
+                    r.data.some(
+                        (
+                            /** @type {{ file_id: number; targetDirectory: string; }} */ pair,
+                        ) => {
+                            if (component.getFileId() == pair.file_id) {
+                                component.setTargetDirectory(
+                                    pair.targetDirectory,
+                                );
+                                component.setErrorState(false);
+                                return true;
+                            }
+                        },
+                    );
+                });
+            })
+            .catch(() => {
+                errorState = true;
+                components.forEach((component) => {
+                    component.setErrorState(true);
+                });
+            })
+            .finally(() => {
+                pathPreviewsLoaded = true;
+                pathPreviewsPromise = null;
+            });
+    }
+
+    $: handleActiveProjectChange($active_project);
+
+    function handleActiveProjectChange(project) {
+        if (!project) {
+            components.forEach((component) => {
+                component.setErrorState(false);
+                component.setTargetDirectory("");
+            });
+            previewsLoadedForProjectId = -1;
+        }
+        if (
+            project &&
+            pathPreviewsLoaded &&
+            project.id != previewsLoadedForProjectId
+        ) {
+            getAllTargetPaths();
+        }
+    }
 </script>
 
+<Dialog.Root bind:open={selectProjectDialogOpen}>
+    <Dialog.Content></Dialog.Content>
+</Dialog.Root>
+
 <div
-    class="{focused || selectProjectDialogOpen
-        ? 'min-w-56'
-        : 'min-w-48 w-48'} transition-all border-l border-accent"
+    class="min-w-56 w-56 border-l border-accent"
     on:focusin={() => (focused = true)}
     on:focusout={() => (focused = false)}
 >
-    <Dialog.Root bind:open={selectProjectDialogOpen}>
-        <Dialog.Content></Dialog.Content>
-    </Dialog.Root>
     <section class="w-full h-full flex flex-col">
-        <div class="p-4 border-b border-accent">
+        <div
+            class="p-4 border-b border-accent flex items-center justify-between"
+        >
             <span class="text-xl">Ingest</span>
+            <button
+                class="{pathPreviewsPromise
+                    ? 'opacity-100'
+                    : 'opacity-50'} hover:opacity-100 transition-opacity"
+                on:click={getAllTargetPaths}
+            >
+                {#if pathPreviewsPromise}
+                    <LoaderIcon class="animate-spin" />
+                {:else}
+                    <ViewIcon />
+                {/if}
+            </button>
         </div>
 
-        <div class="p-4 overflow-x-clip overflow-y-scroll grow max-w-56">
-            <div class="min-h-fit transition-all grid grid-cols-1" >
-                {#each ingestData as ingestItem (ingestItem.id)}
-                    <div class="truncate transition-all duration-500" >
-                        {ingestItem.filename}
-                    </div>
+        <div class="p-2 overflow-x-clip overflow-y-scroll grow max-w-56">
+            <div class="min-h-fit transition-all grid grid-cols-1 gap-2">
+                {#each ingestData as ingestItem, i (ingestItem.id)}
+                    <FileDetailsDialog
+                        bind:this={components[i]}
+                        file={ingestItem}
+                    />
                 {/each}
             </div>
         </div>
@@ -156,7 +242,10 @@
             {#if !ingesting}
                 <Button
                     class="grow"
-                    disabled={ingesting || !ingestData.length || indexing}
+                    disabled={ingesting ||
+                        !ingestData.length ||
+                        indexing ||
+                        errorState}
                     on:click={prepareIngest}
                 >
                     {#if indexing}

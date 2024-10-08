@@ -69,11 +69,12 @@ class IndexFilesAction
 
             // Leftover files in this array don't exist in the database.
             $reader = \PHPExif\Reader\Reader::factory(\PHPExif\Reader\Reader::TYPE_EXIFTOOL);
+
             foreach ($filesInVolume as $fileInVolume) {
                 $pathInfo = pathinfo($fileInVolume);
                 $fullPath = $volume->absolute_path . '/' . $fileInVolume;
                 $exif = [];
-                $mimetype = mime_content_type($fullPath);
+                $mimetype = "";
                 try {
                     $exifType = $reader->read($fullPath);
                     $exif['raw'] = $exifType->getRawData();
@@ -82,6 +83,8 @@ class IndexFilesAction
                 } catch (\Throwable $th) {
                     Log::error('Error reading exif or mimetype of file ' . $fullPath);
                     Log::error($th->getMessage());
+                    Log::error('Skipping...');
+                    continue;
                 }
 
                 array_push(

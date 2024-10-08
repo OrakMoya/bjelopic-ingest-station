@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Events\IngestRulesUpdatedEvent;
 use App\Helpers\IngestRuleFactory;
 use App\Models\IngestRule;
 use App\Models\Project;
@@ -53,6 +54,7 @@ class ProjectIngestController extends Controller
         } else {
             $rule->rules = Utils::jsonEncode($request->rules);
             $rule->save();
+            IngestRulesUpdatedEvent::dispatch($project->id);
         }
 
 

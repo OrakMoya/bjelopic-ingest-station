@@ -20,7 +20,6 @@ class IndexFilesJob implements ShouldQueue, ShouldBeUnique
      */
     public function __construct()
     {
-        //
     }
 
     /**
@@ -45,4 +44,5 @@ class IndexFilesJob implements ShouldQueue, ShouldBeUnique
         Cache::forget('index:running');
         Cache::forget('index:jobpresent');
     }
+
 }

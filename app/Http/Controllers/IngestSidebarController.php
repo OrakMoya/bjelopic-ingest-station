@@ -7,6 +7,7 @@ use App\Models\File;
 use App\Models\Project;
 use App\Models\Volume;
 use Cache;
+use GuzzleHttp\Utils;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -44,5 +45,13 @@ class IngestSidebarController extends Controller
 
         defer(fn() => (new IngestAction())->run(Project::find($id)));
         return response(status: 200);
+    }
+
+    public function show(File $file){
+        $returnData = [];
+        $returnData['file'] = $file;
+        $returnData['exif'] = Utils::jsonDecode($file->exif);
+        unset($file->exif);
+        return new JsonResponse($returnData);
     }
 }
