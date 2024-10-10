@@ -1,6 +1,6 @@
 <script>
     import Nav from "./Nav.svelte";
-    import { active_project } from "$lib/store";
+    import { active_project, ingest_rules_unsaved } from "$lib/store";
     import IngestRuleTree from "./IngestRuleTree.svelte";
     import { Button } from "$lib/components/ui/button";
     import axios from "axios";
@@ -25,13 +25,14 @@
      */
     let children = [];
 
-
     let form = useForm({
-        rules: rules,
+        rules: structuredClone(rules),
     });
 
     function save() {
-        $form.post("/projects/" + project.id + "/ingestrules");
+        $form.post("/projects/" + project.id + "/ingestrules", {
+            onSuccess: () => ($form.rules = structuredClone(rules)),
+        });
     }
 
     /**
@@ -81,14 +82,61 @@
         $form.rules[i + 1] = thisRule;
         $form.rules[i] = previousRule;
     }
+
+    /**
+     * @param {{ operation: any; criteria: any; opts: any; next: any[]; }} rule1
+     * @param {{ operation: any; criteria: any; opts: any; next: any[]; }} rule2
+     */
+    function compare(rule1, rule2) {
+        console.log(rule1, rule2);
+        if (
+            rule1.operation !== rule2.operation ||
+            rule1.criteria !== rule2.criteria ||
+            rule1.opts !== rule2.opts
+        ) {
+            return false;
+        }
+
+        if (rule1.next.length !== rule2.next.length) {
+            return false;
+        }
+        for (let i = 0; i < rule1.next.length; i++) {
+            if (!compare(rule1.next[i], rule2.next[i])) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * @param {{ operation: any; criteria: any; opts: any; next: any[]; }[]} rules1
+     * @param {{ operation: any; criteria: any; opts: any; next: any[]; }[]} rules2
+     */
+    function unsaved(rules1, rules2) {
+        if (rules1.length != rules2.length) return true;
+
+        for (let i = 0; i < rules1.length; i++) {
+            if (!compare(rules1[i], rules2[i])) return true;
+        }
+        return false;
+    }
+
+    onDestroy(() => {
+        ingest_rules_unsaved.set(false);
+    });
+
+    let saveDisabled = true;
+    $: saveDisabled = !unsaved(rules, $form.rules);
+    $: ingest_rules_unsaved.set(!saveDisabled);
 </script>
 
 <Nav />
 
 <div class="flex flex-col w-full h-full">
     <div class="flex gap-x-2 items-center mb-2">
-        <Button on:click={save} >Save</Button>
-        <Button on:click={() => ($form.rules = rules)}
+        <Button on:click={save} disabled={saveDisabled}>Save</Button>
+        <Button on:click={() => ($form.rules = rules)} disabled={saveDisabled}
             ><RefreshCcw class="w-4 h-4" /></Button
         >
         {#if JSON.stringify($page.props.errors) !== "{}"}
@@ -122,7 +170,7 @@
                     >
                 {/if}
 
-                {#each $form.rules as rule, i }
+                {#each $form.rules as rule, i}
                     <div class="flex flex-col w-fit gap-4">
                         <div class="flex">
                             <MoveUpDown

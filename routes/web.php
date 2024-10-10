@@ -32,6 +32,8 @@ Route::get('/projects', [ProjectController::class, 'index'])
     ->name('projects');
 Route::post('/projects', [ProjectController::class, 'store'])
     ->name('projects.store');
+Route::delete('/projects/{project}', [ProjectController::class, 'destroy'])
+    ->name('projects.destroy');
 Route::get('/projects/{project}', [ProjectController::class, 'show'])
     ->name('projects.show');
 Route::get('/projects/{project}/ingestrules', [ProjectIngestController::class, 'index']);
@@ -44,6 +46,8 @@ Route::get('/ingest/{file}', [IngestSidebarController::class, 'show'])
 
 Route::post('/ingest', [IngestSidebarController::class, 'store'])
     ->name('ingest.start');
+Route::delete('/ingest', [IngestSidebarController::class, 'destroy'])
+    ->name('ingest.clear');
 
 Route::get('/ingest/dryrun/{project}/{file}', [IngestDryRunController::class, 'show'])
     ->name('ingest.dryrun.forfile');

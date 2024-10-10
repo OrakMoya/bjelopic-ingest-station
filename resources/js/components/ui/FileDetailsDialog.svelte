@@ -141,16 +141,18 @@
             {/if}
         </button>
 
-        <button
-            on:click={() => dryRunIngest()}
-            class="opacity-30 hover:opacity-100 transition-opacity"
-        >
-            {#if dryRunPromise}
-                <LoaderIcon class="min-w-4 min-h-4 w-4 h-4 animate-spin" />
-            {:else}
-                <ViewIcon class="min-w-4 min-h-4 w-4 h-4" />
-            {/if}
-        </button>
+        {#if $active_project}
+            <button
+                on:click={() => dryRunIngest()}
+                class="opacity-30 hover:opacity-100 transition-opacity"
+            >
+                {#if dryRunPromise}
+                    <LoaderIcon class="min-w-4 min-h-4 w-4 h-4 animate-spin" />
+                {:else}
+                    <ViewIcon class="min-w-4 min-h-4 w-4 h-4" />
+                {/if}
+            </button>
+        {/if}
 
         <span class="truncate transition-all duration-500">
             {file.filename}

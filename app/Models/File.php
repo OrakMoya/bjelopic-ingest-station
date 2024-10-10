@@ -10,7 +10,7 @@ class File extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['filename', 'path', 'volume_id', 'exif'];
+    protected $fillable = ['filename', 'path', 'volume_id', 'exif', 'mimetype'];
 
 
     public function volume():BelongsTo

@@ -85,7 +85,7 @@
 </script>
 
 <div
-    class="flex px-4 py-6 pr-1 border border-accent rounded-xl gap-4 w-fit backdrop-blur backdrop-brightness-[120%] relative"
+    class="flex px-4 py-6 {rule.next.length ? 'pr-2' : ''} border border-accent rounded-xl gap-4 w-fit backdrop-blur backdrop-brightness-[120%] relative"
     style="--tw-backdrop-blur: blur(2px);"
 >
     <div class="absolute top-[2px] left-[6px] opacity-50 italic text-sm">

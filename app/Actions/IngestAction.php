@@ -158,18 +158,16 @@ class IngestAction
                 $originalHash = hash_file('md5', $currentFullAbsolutePath);
                 $newHash = hash_file('md5', $newFullAbsolutePath);
                 if ($originalHash != $newHash) {
-                    Log::info('File already exists but isnt equal. Recopying...');
                     unlink($newFullAbsolutePath);
                     $fileAlreadyExists = false;
                 } else {
-                    Log::info('File already exists and is equal. Skipping...');
-                    unlink($currentFullAbsolutePath);
+                    //unlink($currentFullAbsolutePath);
                 }
             }
 
             // This gets checked again because the code block above may modify it
             if (!$fileAlreadyExists) {
-                $moveSuccessful = $this->moveFile($currentFullAbsolutePath, $newFullAbsolutePath);
+                $moveSuccessful = $this->copyFile($currentFullAbsolutePath, $newFullAbsolutePath);
                 if (!$moveSuccessful) {
                     $msg = 'Failed moving file ' . $file->filename .
                         ' to volume  ' . $projectVolume->display_name;
@@ -179,17 +177,21 @@ class IngestAction
                 }
             }
 
-            try {
-                // Update file in database to point to new location
-                $file->path = $newVolumeRelativePath;
-                $file->volume_id = $projectVolume->id;
-                $file->save();
-            } catch (\Throwable) {
-                // This is most likely caused by the file already being indexed
-                // by the time this gets ran so we just delete the old
-                // file's row in the database.
-                $file->delete();
-            }
+
+            $file->ingest_ignore = true;
+            $file->save();
+            File::updateOrCreate(
+                [
+                    'filename' => $file->filename,
+                    'path' => $newVolumeRelativePath,
+                    'volume_id' => $projectVolume->id
+                ],
+                [
+                    'mimetype' => $file->mimetype,
+                    'exif' => $file->exif,
+                ]
+            );
+
             if ($totalFileCount) {
                 FileIngestedEvent::dispatch($file, $totalFileCount);
             } else {
@@ -320,6 +322,7 @@ class IngestAction
 
         $filesToIngest =  File::select('*')
             ->whereIn('volume_id', $volumeIds)
+            ->where('ingest_ignore', false)
             ->orderBy('created_at', 'ASC')
             ->with('volume')
             ->get();
@@ -334,7 +337,7 @@ class IngestAction
             ->makeDirectory($volumeRelativePath);
     }
 
-    private function moveFile(string $currentFullAbsolutePath, string $newFullAbsolutePath): bool
+    private function copyFile(string $currentFullAbsolutePath, string $newFullAbsolutePath): bool
     {
         $copySuccess = copy($currentFullAbsolutePath, $newFullAbsolutePath);
         if (!$copySuccess) return false;
@@ -343,7 +346,6 @@ class IngestAction
         $newHash = hash_file('md5', $newFullAbsolutePath);
 
         if ($originalHash == $newHash) {
-            unlink($currentFullAbsolutePath);
             return true;
         }
 

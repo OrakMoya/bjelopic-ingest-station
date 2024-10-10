@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\CreateProjectRequest;
+use App\Models\IngestRule;
 use App\Models\Project;
 use App\Services\ProjectService;
 use Illuminate\Http\RedirectResponse;
@@ -79,8 +80,11 @@ class ProjectController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(string $id): void
+    public function destroy(Project $project)
     {
-        //
+        IngestRule::where('project_id', $project->id)
+        ->delete();
+        $project->delete();
+        return redirect(to: '/projects');
     }
 }

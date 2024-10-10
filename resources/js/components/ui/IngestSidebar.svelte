@@ -3,9 +3,14 @@
     import axios from "axios";
     import { toast } from "svelte-sonner";
     import { Button } from "$lib/components/ui/button";
-    import { active_project } from "$lib/store";
+    import { active_project, ingest_rules_unsaved } from "$lib/store";
     import * as Dialog from "$lib/components/ui/dialog";
-    import { LoaderCircle, LoaderIcon, ViewIcon } from "lucide-svelte";
+    import {
+        LoaderCircle,
+        LoaderIcon,
+        TriangleAlertIcon,
+        ViewIcon,
+    } from "lucide-svelte";
     import FileDetailsDialog from "./FileDetailsDialog.svelte";
 
     /**
@@ -16,6 +21,7 @@
     let ingesting = false;
     let fileCount = 0;
     let filesLeft = 0;
+    let ignoredIngestFileCount = 0;
     let selectProjectDialogOpen = false;
     let indexing = false;
     /**
@@ -77,6 +83,7 @@
      * @param {number} id
      */
     function removeIngestedFile(id) {
+        if (!ingestData.length) return;
         let index = -1;
         ingestData.some((file, i) => {
             if (file.id === id) {
@@ -94,17 +101,20 @@
         ingestData.splice(index, 1);
         ingestData = ingestData;
         filesLeft = ingestData.length;
+        ignoredIngestFileCount++;
     }
 
     function refresh() {
         return axios
             .get("/ingest")
             .then((r) => {
+                console.log(r);
                 ingestData = r.data.ingest_data;
                 fileCount = r.data.ingest_file_count;
                 filesLeft = ingestData.length;
                 ingesting = r.data.ingesting;
                 indexing = r.data.indexing;
+                ignoredIngestFileCount = r.data.ignored_ingest_file_count;
             })
             .catch((e) => {
                 toast.error(e.response.data.message);
@@ -112,6 +122,10 @@
     }
 
     function prepareIngest() {
+        if (!pathPreviewsLoaded) {
+            getAllTargetPaths();
+            return;
+        }
         let id = $active_project?.id;
         if (!id) {
             selectProjectDialogOpen = true;
@@ -135,12 +149,23 @@
         });
     }
 
+    function clearHidden() {
+        axios
+            .delete("/ingest")
+            .then(() => refresh())
+            .catch((e) => {
+                toast.error(e.response.data.message);
+            });
+    }
+
     /**
      * @type {Promise<void> | null}
      */
     let pathPreviewsPromise = null;
     let errorState = false;
     let previewsLoadedForProjectId = -1;
+
+    if (ingesting) getAllTargetPaths();
 
     function getAllTargetPaths() {
         if (!$active_project) return;
@@ -150,25 +175,29 @@
                 errorState = false;
                 previewsLoadedForProjectId = $active_project.id;
                 components.forEach((component) => {
-                    r.data.some(
-                        (
-                            /** @type {{ file_id: number; targetDirectory: string; }} */ pair,
-                        ) => {
-                            if (component.getFileId() == pair.file_id) {
-                                component.setTargetDirectory(
-                                    pair.targetDirectory,
-                                );
-                                component.setErrorState(false);
-                                return true;
-                            }
-                        },
-                    );
+                    if (component) {
+                        r.data.some(
+                            (
+                                /** @type {{ file_id: number; targetDirectory: string; }} */ pair,
+                            ) => {
+                                if (component.getFileId() == pair.file_id) {
+                                    component.setTargetDirectory(
+                                        pair.targetDirectory,
+                                    );
+                                    component.setErrorState(false);
+                                    return true;
+                                }
+                            },
+                        );
+                    }
                 });
             })
             .catch(() => {
                 errorState = true;
                 components.forEach((component) => {
-                    component.setErrorState(true);
+                    if (component) {
+                        component.setErrorState(true);
+                    }
                 });
             })
             .finally(() => {
@@ -195,6 +224,7 @@
             getAllTargetPaths();
         }
     }
+    console.log($ingest_rules_unsaved);
 </script>
 
 <Dialog.Root bind:open={selectProjectDialogOpen}>
@@ -210,19 +240,26 @@
         <div
             class="p-4 border-b border-accent flex items-center justify-between"
         >
-            <span class="text-xl">Ingest</span>
-            <button
-                class="{pathPreviewsPromise
-                    ? 'opacity-100'
-                    : 'opacity-50'} hover:opacity-100 transition-opacity"
-                on:click={getAllTargetPaths}
-            >
-                {#if pathPreviewsPromise}
-                    <LoaderIcon class="animate-spin" />
-                {:else}
-                    <ViewIcon />
+            <div class="flex items-center gap-2">
+                {#if $ingest_rules_unsaved}
+                    <TriangleAlertIcon class="text-yellow-500" />
                 {/if}
-            </button>
+                <span class="text-xl">Ingest</span>
+            </div>
+            {#if $active_project}
+                <button
+                    class="{pathPreviewsPromise
+                        ? 'opacity-100'
+                        : 'opacity-50'} hover:opacity-100 transition-opacity"
+                    on:click={getAllTargetPaths}
+                >
+                    {#if pathPreviewsPromise}
+                        <LoaderIcon class="animate-spin" />
+                    {:else}
+                        <ViewIcon />
+                    {/if}
+                </button>
+            {/if}
         </div>
 
         <div class="p-2 overflow-x-clip overflow-y-scroll grow max-w-56">
@@ -233,6 +270,14 @@
                         file={ingestItem}
                     />
                 {/each}
+                {#if ignoredIngestFileCount}
+                    <span class="text-xs opacity-50 italic"
+                        >Hiding {ignoredIngestFileCount} ingested files.
+                        <button class="italic underline" disabled={indexing || ingesting} on:click={clearHidden}
+                            >Unhide</button
+                        ></span
+                    >
+                {/if}
             </div>
         </div>
 
@@ -252,7 +297,13 @@
                         <span class="flex items-center gap-x-2"
                             ><LoaderCircle class="h-4 w-4 animate-spin" /> Indexing</span
                         >
-                    {:else if $active_project}
+                    {:else if !pathPreviewsLoaded && $active_project}
+                        <span>Check</span>
+                    {:else if pathPreviewsLoaded && errorState}
+                        <span>Ingest rule errors</span>
+                    {:else if pathPreviewsLoaded && $active_project && $ingest_rules_unsaved}
+                        <span> Ingest with old rules </span>
+                    {:else if pathPreviewsLoaded && $active_project}
                         <span>
                             Ingest into {$active_project.title}
                         </span>

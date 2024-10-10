@@ -24,6 +24,7 @@ return new class extends Migration
 
             $table->foreignId('volume_id')->references('id')->on('volumes');
             $table->boolean('is_dynamic')->default(false);
+            $table->boolean('ingest_ignore')->default(false);
         });
     }
 

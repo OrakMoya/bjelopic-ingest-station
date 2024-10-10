@@ -19,7 +19,7 @@ class IngestSidebarController extends Controller
         $returnData = [];
 
 
-        $ingestFiles = File::select('id', 'filename', 'volume_id', 'created_at')
+        $ingestFiles = File::select('id', 'filename', 'volume_id', 'created_at', 'ingest_ignore')
             ->whereIn(
                 'volume_id',
                 Volume::select('id', 'type')
@@ -28,9 +28,13 @@ class IngestSidebarController extends Controller
             )
             ->orderBy('created_at', 'ASC')
             ->get();
-        $returnData['ingest_data'] = $ingestFiles;
+        $notIgnoredIngestFiles = $ingestFiles->filter(function($key){
+            return !$key->ingest_ignore;
+        });
+        $returnData['ingest_data'] = [...$notIgnoredIngestFiles->toArray()];
         $returnData['ingesting'] = Cache::get('ingest:running', false);
         $returnData['ingest_file_count'] = Cache::get('ingest:filecount', 0);
+        $returnData['ignored_ingest_file_count'] = $ingestFiles->count() - $notIgnoredIngestFiles->count();
         $returnData['indexing'] = Cache::get('index:running', false);
 
         return new JsonResponse($returnData);
@@ -53,5 +57,9 @@ class IngestSidebarController extends Controller
         $returnData['exif'] = Utils::jsonDecode($file->exif);
         unset($file->exif);
         return new JsonResponse($returnData);
+    }
+
+    public function destroy(){
+        File::where('ingest_ignore', true)->update(['ingest_ignore' => false]);
     }
 }

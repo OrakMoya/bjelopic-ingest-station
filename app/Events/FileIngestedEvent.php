@@ -10,7 +10,7 @@ use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 
-class FileIngestedEvent implements ShouldBroadcast
+class FileIngestedEvent implements ShouldBroadcastNow
 {
     use Dispatchable, InteractsWithSockets, SerializesModels;
     public $queue = 'messages';
@@ -18,9 +18,9 @@ class FileIngestedEvent implements ShouldBroadcast
     /**
      * Create a new event instance.
      */
-    public function __construct(public File $file, public int $totalFileCount)
+    public function __construct(public File $file, public int $totalFileCount, public int|null $overrideId = null)
     {
-        //
+
     }
 
     /**
@@ -41,7 +41,7 @@ class FileIngestedEvent implements ShouldBroadcast
     {
         return [
             'file' => [
-                'id' => $this->file->id,
+                'id' => $this->overrideId ?? $this->file->id,
                 'filename' => $this->file->filename,
                 'path' => $this->file->path,
             ],
