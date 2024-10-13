@@ -17,7 +17,7 @@ class IngestFilesJob implements ShouldQueue
     use Queueable, Batchable;
 
     public $retryAfter = 300;
-    public $tries = 1;
+    public $tries = 2;
 
     /**
      * Create a new job instance.

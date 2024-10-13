@@ -58,6 +58,9 @@
         window.Echo.channel("ingest").listen("IngestIndexedEvent", () => {
             refreshFiles();
         });
+        window.Echo.channel("ingest").listen("IngestFileProgressEvent", (e) => {
+            updateProgressForFile(e.id, e.status, e.progress);
+        });
         window.Echo.channel("volumes").listen("VolumesChangedEvent", () => {
             if (!ingesting) refreshFiles();
         });
@@ -70,6 +73,7 @@
             fileCount = e.fileCount;
             ingesting = true;
             button_disabled = false;
+            toast.info(e.message);
         });
 
         window.Echo.channel("ingest").listen("FileIngestedEvent", (e) => {
@@ -150,6 +154,23 @@
             return false;
         });
         filesLeft--;
+    }
+
+    /**
+     * @param {number} id
+     * @param {string} status
+     * @param {number} progress
+     */
+    function updateProgressForFile(id, status, progress){
+        fileComponents.some((component) => {
+            if (component.getFileId() == id) {
+                component.setStatus(status);
+                component.setProgress(progress);
+                return true;
+            }
+            return false;
+        });
+
     }
 
     function refreshFiles() {

@@ -32,6 +32,8 @@
      * @type {Promise<void>|null}
      */
     let dryRunPromise;
+    let status = "";
+    let progress = 0.0;
 
     let exists = false;
 
@@ -45,6 +47,19 @@
                 toast.error(e.response.statusText);
                 detailsPromise = null;
             }));
+    }
+
+    /**
+     * @param {number} progressToSet
+     */
+    export function setProgress(progressToSet) {
+        progress = progressToSet;
+    }
+    /**
+     * @param {string} statusToSet
+     */
+    export function setStatus(statusToSet) {
+        status = statusToSet;
     }
 
     /**
@@ -145,15 +160,22 @@
     <div
         class="flex gap-2 items-center {errorState
             ? 'bg-destructive'
-            : 'bg-accent'} {ingested && !exists
-            ? 'bg-green-700'
-            : ''} {exists ? 'bg-blue-900' : ''} transition-all duration-200 text-white px-2 py-1 rounded-md {targetDirectory &&
+            : 'bg-accent'} {ingested && !exists ? 'bg-green-700' : ''} {exists
+            ? 'bg-blue-900'
+            : ''} transition-all duration-200 text-white px-2 py-1 rounded-md {targetDirectory &&
         !errorState &&
         !ingested
             ? 'rounded-bl-none'
-            : ''} w-full drop-shadow-md"
+            : ''} w-full drop-shadow-md overflow-clip"
     >
-        {#if !ingested}
+        {#if !ingested && !errorState && progress}
+            <div
+                class="absolute bottom-0 left-0 h-[2px] {progress == 1 ? 'bg-green-500' : 'bg-white/90'} transition-all duration-1000"
+                style="width: {progress * 100}%;"
+            ></div>
+        {/if}
+
+        {#if !ingested && status !== "copying" && status !== "verifying"}
             <button
                 class="{!details && !detailsPromise
                     ? 'opacity-30'
@@ -181,6 +203,8 @@
                     {/if}
                 </button>
             {/if}
+        {:else if !ingested}
+            <LoaderIcon class="min-w-4 w-4 min-h-4 h-4 animate-spin" />
         {:else}
             <CheckIcon class="min-w-4 w-4 min-h-4 h-4" />
         {/if}

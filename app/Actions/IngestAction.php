@@ -5,6 +5,7 @@ namespace App\Actions;
 use App\Events\FileIngestedEvent;
 use App\Events\IngestCompleteEvent;
 use App\Events\IngestErrorEvent;
+use App\Events\IngestFileProgressEvent;
 use App\Events\IngestStartedEvent;
 use App\Exceptions\IngestException;
 use App\Exceptions\InvalidVolumeException;
@@ -26,6 +27,9 @@ use Throwable;
 
 class IngestAction
 {
+    public File $file;
+
+
     /**
      * @param Collection<array-key,Model> $file_collection
      * @param array<int,mixed> $newPaths
@@ -132,6 +136,8 @@ class IngestAction
         $projectVolume = Volume::find($project->volume_id)->first();
 
         foreach ($files as $file) {
+            $this->file = $file;
+
             $projectRelativePath = $newPaths[$file->id];
             assert($projectRelativePath);
 
@@ -362,7 +368,38 @@ class IngestAction
     private function copyFile(string $currentFullAbsolutePath, string $newFullAbsolutePath): bool
     {
         try {
-            copy($currentFullAbsolutePath, $newFullAbsolutePath);
+            $fileSize = filesize($currentFullAbsolutePath);
+            $oneMegabyte = 1048576; // 1MiB
+            $bs = $oneMegabyte * 5;
+            $interval = 1;
+
+            if ($fileSize > $bs*10) {
+                $currentHandle = fopen($currentFullAbsolutePath, 'r');
+                $newHandle = fopen($newFullAbsolutePath, 'w');
+
+                $counter = 0;
+                $amountCopied = 0;
+                while (($block = fread($currentHandle, $bs))) {
+                    if ($counter > $interval) {
+                        $percents = $amountCopied / $fileSize;
+                        $percents = $percents > 1 ? 1.0 : $percents;
+                        IngestFileProgressEvent::dispatch($this->file->id, 'copying', $percents);
+                        $counter = 0;
+                    }
+
+                    fwrite($newHandle, $block);
+                    $amountCopied += strlen($block);
+
+                    $counter++;
+                }
+
+                fclose($currentHandle);
+                fclose($newHandle);
+            } else {
+                copy($currentFullAbsolutePath, $newFullAbsolutePath);
+            }
+
+            IngestFileProgressEvent::dispatch($this->file->id, 'verifying', 1.0);
             $originalHash = hash_file('md5', $currentFullAbsolutePath);
             $newHash = hash_file('md5', $newFullAbsolutePath);
 
