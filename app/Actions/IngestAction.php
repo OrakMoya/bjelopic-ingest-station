@@ -34,7 +34,7 @@ class IngestAction
     public function prepare(Project $project, Collection $file_collection, array $newPaths, array $ingestSettings): array
     {
         $jobs = [];
-        $chunked = array_chunk($file_collection->all(), 5);
+        $chunked = array_chunk($file_collection->all(), 1);
         foreach ($chunked as $files) {
             array_push($jobs, new IngestFilesJob($project, $files, $newPaths, count($file_collection), $ingestSettings));
         }
