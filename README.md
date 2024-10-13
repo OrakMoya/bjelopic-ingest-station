@@ -9,6 +9,7 @@
  - Ingest files from an ingest volume and organize them into directories dictated by ingest rules
  - Realtime ingest progress and web app state updates using websockets
  - Check for overwrites in target project (optionally overwrite if files aren't equal)
+ - Live update of ingest progress and file copying progress on web UI
  
 ### Ingest Rule Operations
 #### Mimetype is
