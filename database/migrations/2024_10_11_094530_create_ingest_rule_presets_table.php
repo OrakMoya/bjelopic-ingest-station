@@ -11,14 +11,12 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('ingest_rules', function (Blueprint $table) {
+        Schema::create('ingest_rule_presets', function (Blueprint $table) {
             $table->id();
 
-            $table->json('rules');
-            $table->foreignId('project_id')
-                ->references('id')
-                ->on('projects')
-            ->onDelete('cascade');
+            $table->string('name')->unique();
+            $table->integer('ingest_rule_id')->unique();
+            $table->foreign('ingest_rule_id')->references('id')->on('ingest_rules');
 
             $table->timestamps();
         });
@@ -29,6 +27,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('ingest_rules');
+        Schema::dropIfExists('ingest_rule_presets');
     }
 };

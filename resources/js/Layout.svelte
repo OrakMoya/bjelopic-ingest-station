@@ -26,7 +26,7 @@
         <div class="flex flex-col justify-between grow">
             <div class="flex w-full relative grow">
                 <div class="absolute w-full h-full">
-                    <div class="h-full w-full  grow mx-auto px-4 py-4 box-border">
+                    <div class="h-full w-full  grow mx-auto px-4 py-4 box-border overflow-clip">
                         <slot />
                     </div>
                 </div>

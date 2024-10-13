@@ -6,7 +6,7 @@ use App\Http\Controllers\IngestSidebarController;
 use App\Http\Controllers\ProjectController;
 use App\Http\Controllers\ProjectIngestController;
 use App\Http\Controllers\VolumeController;
-use Illuminate\Support\Facades\Redis;
+use App\Http\Controllers\VolumeRefreshController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -23,6 +23,8 @@ Route::get('/settings/volumes', [VolumeController::class, 'index'])
     ->name('settings.volumes');
 Route::post('/settings/volumes', [VolumeController::class, 'store'])
     ->name('settings.volumes.store');
+Route::post('/settings/volumes/{volume}/refresh', [VolumeRefreshController::class, 'store'])
+    ->name('settings.volumes.refresh');
 
 Route::delete('/settings/volumes/{id}', [VolumeController::class, 'destroy'])
     ->name('settings.volumes.destroy');

@@ -3,17 +3,16 @@
 namespace App\Jobs;
 
 use App\Actions\IndexFilesAction;
-use App\Actions\IngestAction;
 use App\Models\Volume;
 use Cache;
 use Illuminate\Contracts\Broadcasting\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
-use Illuminate\Support\Facades\Log;
 
 class IndexFilesJob implements ShouldQueue, ShouldBeUnique
 {
     use Queueable;
+    public $tries = 0;
 
     /**
      * Create a new job instance.
@@ -29,6 +28,7 @@ class IndexFilesJob implements ShouldQueue, ShouldBeUnique
     {
 
         $volumes = Volume::select('*')
+            ->where('is_alive', true)
             ->get();
         $indexAction = new IndexFilesAction();
         foreach ($volumes as $volume) {

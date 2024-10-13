@@ -16,7 +16,10 @@ return new class extends Migration
             $table->timestamps();
 
             $table->string('title');
-            $table->foreignId('volume_id')->references('id')->on('volumes');
+            $table->foreignId('volume_id')
+                ->references('id')
+                ->on('volumes')
+                ->onDelete('cascade');
         });
     }
 

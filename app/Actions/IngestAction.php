@@ -18,29 +18,42 @@ use App\Models\Volume;
 use GuzzleHttp\Utils;
 use Illuminate\Bus\Batch;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
 class IngestAction
 {
-    public function prepare(Project $project, Collection $files, array $newPaths): array
+    /**
+     * @param Collection<array-key,Model> $file_collection
+     * @param array<int,mixed> $newPaths
+     * @param array<int,mixed> $ingestSettings
+     */
+    public function prepare(Project $project, Collection $file_collection, array $newPaths, array $ingestSettings): array
     {
         $jobs = [];
-        foreach ($files as $file) {
-            array_push($jobs, new IngestFilesJob($project, [$file], $newPaths, count($files)));
+        $chunked = array_chunk($file_collection->all(), 5);
+        foreach ($chunked as $files) {
+            array_push($jobs, new IngestFilesJob($project, $files, $newPaths, count($file_collection), $ingestSettings));
         }
         return $jobs;
     }
-
-    public function run(Project $project): void
+    /**
+     * @param array<int,mixed> $ingestSettings
+     */
+    public function run(Project $project, array $ingestSettings = []): void
     {
         $volumeLock = Cache::lock('volumes');
         $owner = $volumeLock->owner();
 
-        $volumeLock->block(5);
+        try {
+            $volumeLock->block(1);
+        } catch (\Throwable $th) {
+            IngestErrorEvent::dispatch("Volumes locked.");
+            return;
+        }
 
         $jobs = null;
         try {
@@ -74,7 +87,7 @@ class IngestAction
                 $filesToIngest,
             );
 
-            $jobs = $this->prepare($project, $filesToIngest, $newProjectRelativePaths);
+            $jobs = $this->prepare($project, $filesToIngest, $newProjectRelativePaths, $ingestSettings);
         } catch (\Throwable $th) {
             $volumeLock->release();
             Log::error($th->getMessage());
@@ -111,18 +124,27 @@ class IngestAction
      * for the newPaths array should be the file's ID.
      * @param array<int, File>|Collection<File> $files
      * @param array<int, string> $newPaths
+     * @param array<int,mixed> $opts
      */
-    public function performIngest(Project $project, array|Collection $files, array $newPaths, int $totalFileCount = 0): void
+    public function performIngest(Project $project, array|Collection $files, array $newPaths, int $totalFileCount = 0, array $opts = []): void
     {
 
-        $projectVolume = $project->volume ?? Volume::find($project->volume_id)->first();
+        $projectVolume = Volume::find($project->volume_id)->first();
 
         foreach ($files as $file) {
             $projectRelativePath = $newPaths[$file->id];
             assert($projectRelativePath);
 
             // Get current file's ingest volume
-            $ingestVolume = $file->volume ?? Volume::where('id', '=', $file->volume_id)->first();
+            $ingestVolume = Volume::where('id', '=', $file->volume_id)->first();
+
+            try {
+                $ingestVolume->getDiskInstance();
+            } catch (\Throwable) {
+                FileIngestedEvent::dispatch($file, $totalFileCount, null, false, true);
+                continue;
+            }
+
             if (is_null($ingestVolume)) {
                 $msg = 'Failed getting ingest volume for file.';
                 IngestErrorEvent::dispatch($msg);
@@ -152,16 +174,15 @@ class IngestAction
                 ->exists($newFullVolumeRelativePath);
             if ($fileAlreadyExists) {
                 if (!file_exists($currentFullAbsolutePath) || !file_exists($newFullAbsolutePath)) {
-                    Log::error('Skipping file...');
                     continue;
                 }
-                $originalHash = hash_file('md5', $currentFullAbsolutePath);
-                $newHash = hash_file('md5', $newFullAbsolutePath);
-                if ($originalHash != $newHash) {
-                    unlink($newFullAbsolutePath);
-                    $fileAlreadyExists = false;
-                } else {
-                    //unlink($currentFullAbsolutePath);
+                if ($opts['check_equality'] ?? true) {
+                    $originalHash = hash_file('md5', $currentFullAbsolutePath);
+                    $newHash = hash_file('md5', $newFullAbsolutePath);
+                    if ($originalHash != $newHash) {
+                        unlink($newFullAbsolutePath);
+                        $fileAlreadyExists = false;
+                    }
                 }
             }
 
@@ -172,8 +193,9 @@ class IngestAction
                     $msg = 'Failed moving file ' . $file->filename .
                         ' to volume  ' . $projectVolume->display_name;
 
-                    IngestErrorEvent::dispatch($msg);
-                    throw new IngestException($msg);
+                    FileIngestedEvent::dispatch($file, $totalFileCount, null, false, true);
+                    Log::error($msg);
+                    continue;
                 }
             }
 
@@ -193,9 +215,9 @@ class IngestAction
             );
 
             if ($totalFileCount) {
-                FileIngestedEvent::dispatch($file, $totalFileCount);
+                FileIngestedEvent::dispatch($file, $totalFileCount, null,  $fileAlreadyExists);
             } else {
-                FileIngestedEvent::dispatch($file, count($files));
+                FileIngestedEvent::dispatch($file, count($files), null,  $fileAlreadyExists);
             }
         }
     }
@@ -339,15 +361,19 @@ class IngestAction
 
     private function copyFile(string $currentFullAbsolutePath, string $newFullAbsolutePath): bool
     {
-        $copySuccess = copy($currentFullAbsolutePath, $newFullAbsolutePath);
-        if (!$copySuccess) return false;
+        try {
+            copy($currentFullAbsolutePath, $newFullAbsolutePath);
+            $originalHash = hash_file('md5', $currentFullAbsolutePath);
+            $newHash = hash_file('md5', $newFullAbsolutePath);
 
-        $originalHash = hash_file('md5', $currentFullAbsolutePath);
-        $newHash = hash_file('md5', $newFullAbsolutePath);
-
-        if ($originalHash == $newHash) {
-            return true;
+            if ($originalHash == $newHash) {
+                return true;
+            }
+        } catch (\ErrorException $ex) {
+            Log::warning($ex->getMessage());
+            return false;
         }
+
 
         return false;
     }

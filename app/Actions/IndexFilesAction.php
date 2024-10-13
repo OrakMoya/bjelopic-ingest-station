@@ -37,7 +37,8 @@ class IndexFilesAction
                 $ctime = filectime($path);
                 if (
                     $mtime < $tenSecondsAgo &&
-                    $ctime < $tenSecondsAgo
+                    $ctime < $tenSecondsAgo &&
+                    $current !== '.ingeststation'
                 ) {
                     array_push($previous, $current);
                 }

@@ -4,6 +4,7 @@
     import AddNewVolumeDialog from "./Volumes/AddNewVolumeDialog.svelte";
     import axios from "axios";
     import { toast } from "svelte-sonner";
+    import { onMount } from "svelte";
 
     const csrf_token = document
         .querySelector('meta[name="csrf-token"]')
@@ -33,6 +34,12 @@
                 toast.error(e.data.message);
             });
     }
+
+    onMount(() => {
+        window.Echo.channel("volumes").listen("VolumesChangedEvent", () => {
+            refreshVolumes();
+        });
+    });
 </script>
 
 <SettingsSectionTitle class="mt-0 border-0">Volumes</SettingsSectionTitle>
@@ -46,8 +53,12 @@
         </div>
 
         <div class="flex flex-col gap-y-4">
-            {#each volumes as volume}
-                <VolumeItem on:volumeDeleted={refreshVolumes} {volume} />
+            {#each volumes as volume, i}
+                <VolumeItem
+                    class="{i % 2 ? 'bg-accent' : ''} px-4 py-2 rounded-md"
+                    on:volumeDeleted={refreshVolumes}
+                    {volume}
+                />
             {/each}
         </div>
     </div>

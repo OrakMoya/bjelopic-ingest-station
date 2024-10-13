@@ -18,7 +18,7 @@ class FileIngestedEvent implements ShouldBroadcastNow
     /**
      * Create a new event instance.
      */
-    public function __construct(public File $file, public int $totalFileCount, public int|null $overrideId = null)
+    public function __construct(public File $file, public int $totalFileCount, public int|null $overrideId = null, public bool $alreadyExists = false, public bool $error = false)
     {
 
     }
@@ -45,7 +45,9 @@ class FileIngestedEvent implements ShouldBroadcastNow
                 'filename' => $this->file->filename,
                 'path' => $this->file->path,
             ],
-            'totalFileCount' => $this->totalFileCount
+            'totalFileCount' => $this->totalFileCount,
+            'alreadyExists' => $this->alreadyExists,
+            'error' => $this->error
         ];
     }
 }

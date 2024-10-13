@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Actions\IngestAction;
+use App\Events\IngestIndexedEvent;
 use App\Models\File;
 use App\Models\Project;
 use App\Models\Volume;
@@ -23,12 +24,13 @@ class IngestSidebarController extends Controller
             ->whereIn(
                 'volume_id',
                 Volume::select('id', 'type')
-                    ->where('type', '=', 'ingest')
+                    ->where('type', 'ingest')
+                    ->where('is_alive', true)
                     ->pluck('id')
             )
             ->orderBy('created_at', 'ASC')
             ->get();
-        $notIgnoredIngestFiles = $ingestFiles->filter(function($key){
+        $notIgnoredIngestFiles = $ingestFiles->filter(function ($key) {
             return !$key->ingest_ignore;
         });
         $returnData['ingest_data'] = [...$notIgnoredIngestFiles->toArray()];
@@ -43,15 +45,21 @@ class IngestSidebarController extends Controller
     public function store(Request $request): Response
     {
         $request->validate(
-            ['id' => 'required|exists:projects']
+            [
+                'id' => 'required|exists:projects',
+                'ingest_settings' => 'required'
+            ],
         );
         $id = $request->id;
+        $ingestSettings = $request->ingest_settings;
 
-        defer(fn() => (new IngestAction())->run(Project::find($id)));
+        defer(fn() => (new IngestAction())->run(Project::find($id), $ingestSettings));
+
         return response(status: 200);
     }
 
-    public function show(File $file){
+    public function show(File $file)
+    {
         $returnData = [];
         $returnData['file'] = $file;
         $returnData['exif'] = Utils::jsonDecode($file->exif);
@@ -59,7 +67,11 @@ class IngestSidebarController extends Controller
         return new JsonResponse($returnData);
     }
 
-    public function destroy(){
+    public function destroy()
+    {
         File::where('ingest_ignore', true)->update(['ingest_ignore' => false]);
+        IngestIndexedEvent::dispatch();
+
+        return response(status: 200);
     }
 }

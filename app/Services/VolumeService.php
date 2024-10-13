@@ -5,6 +5,7 @@ namespace App\Services;
 use App;
 use App\Exceptions\InvalidVolumeException;
 use App\Models\Volume;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Storage;
 
@@ -23,6 +24,8 @@ class VolumeService
             $message = 'Path for new volume at \'' . $absolute_path . '\' does not exist.';
             throw new InvalidVolumeException($message);
         }
+
+        touch($absolute_path . '/.ingeststation');
 
         $volume = Volume::create([
             'display_name' => $display_name,
@@ -75,13 +78,24 @@ class VolumeService
     }
 
 
-    public function getFreeSpace(Volume $volume)
+    public function getFreeSpace(Volume $volume): int
     {
-        return disk_free_space($volume->absolute_path);
+        try {
+            return (int)disk_free_space($volume->absolute_path);
+        } catch (\ErrorException) {
+            Log::error('Failed reading free disk space of volume ' . $volume->title);
+            return 0;
+        }
     }
 
-    public function getTotalSpace(Volume $volume)
+    public function getTotalSpace(Volume $volume): int
     {
-        return disk_total_space($volume->absolute_path);
+        try {
+            return (int)disk_total_space($volume->absolute_path);
+        } catch (\ErrorException) {
+            Log::error('Failed reading total disk space of volume ' . $volume->title);
+            return 0;
+            return 0;
+        }
     }
 }

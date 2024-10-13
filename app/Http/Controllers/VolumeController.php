@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Events\ProjectsChangedEvent;
+use App\Events\VolumesChangedEvent;
 use App\Services\VolumeService;
 use App\Http\Requests\CreateVolumeRequest;
 use App\Models\Volume;
@@ -29,13 +31,13 @@ class VolumeController extends Controller
 
         if ($request->input('free_space', 0)) {
             foreach ($volumes as &$volume) {
-                $volume['free_space'] = $volumeService->getFreeSpace($volume);
+                $volume['free_space'] = $volume->is_alive ? $volumeService->getFreeSpace($volume) : 0;
             }
         }
 
         if ($request->input('total_space', 0)) {
             foreach ($volumes as &$volume) {
-                $volume['total_space'] = $volumeService->getTotalSpace($volume);
+                $volume['total_space'] = $volume->is_alive ? $volumeService->getTotalSpace($volume) : 0;
             }
         }
 
@@ -75,7 +77,7 @@ class VolumeController extends Controller
     /**
      * Display the specified resource.
      */
-    public function show(string $id): JsonResponse
+    public function show(int $id): JsonResponse
     {
         $volume = Volume::find($id);
         if (!$volume) {
@@ -83,6 +85,7 @@ class VolumeController extends Controller
         }
 
         $returnData = [];
+        $returnData['volume'] = $volume;
         $returnData['free_space'] = disk_free_space($volume->absolute_path);
         $return_data['total_space'] = disk_total_space($volume->absolute_path);
 
@@ -115,6 +118,11 @@ class VolumeController extends Controller
         } catch (\App\Exceptions\InvalidVolumeException $th) {
             abort(404, $th->getMessage());
         }
+
+        VolumesChangedEvent::dispatch();
+        ProjectsChangedEvent::dispatch();
+
+
 
         return response(status: 200);
     }

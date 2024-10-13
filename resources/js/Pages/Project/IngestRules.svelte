@@ -88,7 +88,6 @@
      * @param {{ operation: any; criteria: any; opts: any; next: any[]; }} rule2
      */
     function compare(rule1, rule2) {
-        console.log(rule1, rule2);
         if (
             rule1.operation !== rule2.operation ||
             rule1.criteria !== rule2.criteria ||
@@ -162,13 +161,11 @@
             <div
                 class="flex flex-col gap-4 w-fit h-fit transition-all duration-500"
             >
-                {#if !$form.rules.length}
                     <Button
                         on:click={() => addRootChild(0)}
                         variant="ghost"
                         class="text-lg ">+</Button
                     >
-                {/if}
 
                 {#each $form.rules as rule, i}
                     <div class="flex flex-col w-fit gap-4">

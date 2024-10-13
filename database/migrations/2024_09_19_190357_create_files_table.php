@@ -22,7 +22,10 @@ return new class extends Migration
             $table->json('exif')->nullable();
             $table->string('mimetype');
 
-            $table->foreignId('volume_id')->references('id')->on('volumes');
+            $table->foreignId('volume_id')
+                ->references('id')
+                ->on('volumes')
+                ->onDelete('cascade');
             $table->boolean('is_dynamic')->default(false);
             $table->boolean('ingest_ignore')->default(false);
         });
