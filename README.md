@@ -26,7 +26,5 @@
 #### Save to
 When reached, saves to the specified directory (e.g. `"Raw Footage/Quicktime"`).
 
-### See it in action
+### Screenshots
 ![](public/readme/ingeststation1.png)
-
-![](public/readme/preview.mp4)
