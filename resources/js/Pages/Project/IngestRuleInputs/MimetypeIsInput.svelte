@@ -1,6 +1,6 @@
-<script>
+<script lang="ts">
     import Combobox from "$lib/components/ui/combobox/combobox.svelte";
-    export let value;
+    let { value = $bindable(), onValueChange = ()=>{} } = $props();
 
     let comboboxValues = [
         {value: 'video/*', label: 'video/*'},
@@ -23,6 +23,10 @@
         {value: 'text/*', label: 'text/*'},
         {value: 'text/plain', label: 'text/plain'},
     ];
+
+    $effect(()=>{
+        onValueChange(value);
+    })
 </script>
 
 

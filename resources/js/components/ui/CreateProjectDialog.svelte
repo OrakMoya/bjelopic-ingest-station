@@ -9,8 +9,8 @@
     import { onMount } from "svelte";
     import { toast } from "svelte-sonner";
 
-    let volumes = [];
-    let open = false;
+    let volumes = $state([]);
+    let open = $state(false);
 
     function refreshVolumes() {
         volumes = [];
@@ -37,7 +37,12 @@
         volume_id: null,
     });
 
-    function processSubmit() {
+    /**
+     * @argument {SubmitEvent} e
+     */
+    function processSubmit(e) {
+        e.preventDefault();
+
         $form.post("/projects", {
             onSuccess: () => {
                 open = false;
@@ -56,11 +61,13 @@
 </script>
 
 <Dialog.Root bind:open>
-    <Dialog.Trigger asChild let:builder>
-        <Button builders={[builder]}>+</Button>
+    <Dialog.Trigger>
+        {#snippet child({ props })}
+            <Button {...props}>+</Button>
+        {/snippet}
     </Dialog.Trigger>
     <Dialog.Content>
-        <form on:submit|preventDefault={processSubmit} class="grid gap-4">
+        <form onsubmit={processSubmit} class="grid gap-4">
             <Dialog.Header>
                 <Dialog.Title>Create new project</Dialog.Title>
             </Dialog.Header>
@@ -68,11 +75,8 @@
             <div class="flex flex-col gap-2">
                 <Label for="project-title">Title</Label>
                 <Input id="project-title" bind:value={$form.title} />
-                <Label >Volume</Label>
-                <Combobox
-                    bind:value={$form.volume_id}
-                    comboValues={volumes}
-                />
+                <Label>Volume</Label>
+                <Combobox bind:value={$form.volume_id} comboValues={volumes} />
             </div>
 
             <Dialog.Footer>

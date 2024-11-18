@@ -5,37 +5,30 @@
     import { toast } from "svelte-sonner";
     import { onMount } from "svelte";
 
-    /**
-     * @type {{ id: number; filename: string; mimetype: string; }}
-     */
-    export let file;
-    /**
-     * @type {{ id: number; }}
-     */
-    export let project;
-    let open = false;
-    let ingested = false;
+    let { file, project = $bindable(), targetDirectory = "" } = $props();
+    let open = $state(false);
+    let ingested = $state(false);
+
     /**
      * @type {HTMLDivElement}
      */
-    let root;
+    let root = $state(null);
 
-    /**
-     * @type {{ exif: { raw: { [x: string]: any; }; }; }}
-     */
-    let details;
+    let details = $state(null);
+
     /**
      * @type {Promise<void>|null}
      */
-    let detailsPromise;
+    let detailsPromise = $state(null);
+
     /**
      * @type {Promise<void>|null}
      */
-    let dryRunPromise;
-    let status = "";
-    let progress = 0.0;
+    let dryRunPromise = $state(null);
+    let status = $state("");
+    let progress = $state(0.0);
 
-    let exists = false;
+    let exists = $state(false);
 
     function getDetails() {
         return (detailsPromise = axios
@@ -76,8 +69,7 @@
         open = true;
     }
 
-    export let targetDirectory = "";
-    let errorState = false;
+    let errorState = $state(false);
 
     export function getFileId() {
         return file.id;
@@ -170,7 +162,9 @@
     >
         {#if !ingested && !errorState && progress}
             <div
-                class="absolute bottom-0 left-0 h-[2px] {progress == 1 ? 'bg-green-500' : 'bg-white/90'} transition-all duration-1000"
+                class="absolute bottom-0 left-0 h-[2px] {progress == 1
+                    ? 'bg-green-500'
+                    : 'bg-white/90'} transition-all duration-1000"
                 style="width: {progress * 100}%;"
             ></div>
         {/if}
@@ -180,7 +174,7 @@
                 class="{!details && !detailsPromise
                     ? 'opacity-30'
                     : ''} hover:opacity-100 transition-opacity"
-                on:click={() => showDetails()}
+                onclick={() => showDetails()}
             >
                 {#if detailsPromise && !details}
                     <LoaderIcon class="min-w-4 min-h-4 w-4 h-4 animate-spin" />
@@ -191,7 +185,7 @@
 
             {#if project}
                 <button
-                    on:click={() => dryRunIngest()}
+                    onclick={() => dryRunIngest()}
                     class="opacity-30 hover:opacity-100 transition-opacity"
                 >
                     {#if dryRunPromise}

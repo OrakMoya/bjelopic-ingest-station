@@ -13,43 +13,50 @@
     } from "lucide-svelte";
     import FileDetailsDialog from "./FileDetailsDialog.svelte";
     import Combobox from "./combobox/combobox.svelte";
-    import AddNewVolumeDialog from "$lib/Pages/Settings/Volumes/AddNewVolumeDialog.svelte";
     import { Checkbox } from "$lib/components/ui/checkbox";
     import { Label } from "$lib/components/ui/label";
 
     /**
      * @type {any[]}
      */
-    let ingestData = [];
-    let focused = false;
-    let ingesting = false;
-    let fileCount = 0;
-    let filesLeft = 0;
-    let ignoredIngestFileCount = 0;
-    let selectProjectDialogOpen = false;
-    let indexing = false;
-    $: selected_project = $active_project;
+    let ingestData = $state([]);
+    let focused = $state(false);
+    let ingesting = $state(false);
+    let fileCount = $state(0);
+    let filesLeft = $state(0);
+    let ignoredIngestFileCount = $state(0);
+    let selectProjectDialogOpen = $state(false);
+    let indexing = $state(false);
+
+    /**
+     *  @type {{id: number; title: string}|null}
+     */
+    let selected_project = $state(null);
+
+    $effect(() => {
+        selected_project = $active_project;
+    });
 
     /**
      * @type {string}
      */
-    let comboboxSelectedProjectIdString;
+    let comboboxSelectedProjectIdString = $state("");
 
     /**
      * @type {FileDetailsDialog[]}
      */
-    let fileComponents = [];
+    let fileComponents = $state([]);
 
     /**
-     * @type {{ id: string; title: string; }[]}
+     * @type {{ id: number; title: string; }[]}
      */
-    let availableProjects;
+    let availableProjects = $state([]);
     /**
      * @type {any[]}
      */
-    let comboValues = [];
+    let comboValues = $state([]);
 
-    let pathPreviewsLoaded = false;
+    let pathPreviewsLoaded = $state(false);
 
     onMount(() => {
         refreshFiles();
@@ -117,27 +124,6 @@
      */
     function markIngestedFile(id, alreadyExists = false, error = false) {
         if (!ingestData.length) return;
-        /*
-        let index = -1;
-        ingestData.some((file, i) => {
-            if (file.id === id) {
-                index = i;
-
-                return true;
-            }
-            return false;
-        });
-
-        if (index === -1) {
-            return;
-        }
-
-
-        ingestData.splice(index, 1);
-        ingestData = ingestData;
-        filesLeft = ingestData.length;
-        ignoredIngestFileCount++;
-        */
 
         fileComponents.some((component) => {
             if (component.getFileId() == id) {
@@ -161,7 +147,7 @@
      * @param {string} status
      * @param {number} progress
      */
-    function updateProgressForFile(id, status, progress){
+    function updateProgressForFile(id, status, progress) {
         fileComponents.some((component) => {
             if (component.getFileId() == id) {
                 component.setStatus(status);
@@ -170,7 +156,6 @@
             }
             return false;
         });
-
     }
 
     function refreshFiles() {
@@ -202,7 +187,7 @@
                 comboValues = [];
                 availableProjects = r.data.projects;
                 availableProjects.forEach(
-                    (/** @type {{ id: string; title: string; }} */ project) => {
+                    (/** @type {{ id: number; title: string; }} */ project) => {
                         comboValues.push({
                             value: project.id.toString(),
                             label: project.title,
@@ -226,11 +211,11 @@
         startIngest(id);
     }
 
-    let ingestSettings = {
+    let ingestSettings = $state({
         check_equality: false,
-    };
+    });
 
-    let button_disabled = false;
+    let button_disabled = $state(false);
 
     /**
      * @param {number} id
@@ -258,11 +243,13 @@
     /**
      * @type {Promise<void> | null}
      */
-    let pathPreviewsPromise = null;
-    let errorState = false;
-    let previewsLoadedForProjectId = -1;
+    let pathPreviewsPromise = $state(null);
+    let errorState = $state(false);
+    let previewsLoadedForProjectId = $state(-1);
 
+    /*
     if (ingesting) getAllTargetPaths();
+    */
 
     function getAllTargetPaths() {
         if (!selected_project) return;
@@ -304,8 +291,12 @@
             });
     }
 
-    $: handleActiveProjectChange($active_project);
-    $: handleComboboxSelectedProject(comboboxSelectedProjectIdString);
+    $effect(() => {
+        handleActiveProjectChange($active_project);
+    });
+    $effect(() => {
+        handleComboboxSelectedProject(Number(comboboxSelectedProjectIdString));
+    });
 
     /**
      * @param {{ id: number; title: string; } | null} project
@@ -328,6 +319,9 @@
         }
     }
 
+    /**
+     * @param {number} id
+     */
     function handleComboboxSelectedProject(id) {
         if (!availableProjects) return;
         availableProjects.some((project) => {
@@ -347,8 +341,8 @@
 
 <div
     class="min-w-56 w-56 border-l border-accent"
-    on:focusin={() => (focused = true)}
-    on:focusout={() => (focused = false)}
+    onfocusin={() => (focused = true)}
+    onfocusout={() => (focused = false)}
 >
     <section class="w-full h-full flex flex-col">
         <div
@@ -365,7 +359,7 @@
                     class="{pathPreviewsPromise
                         ? 'opacity-100'
                         : 'opacity-50'} hover:opacity-100 transition-opacity"
-                    on:click={getAllTargetPaths}
+                    onclick={getAllTargetPaths}
                 >
                     {#if pathPreviewsPromise}
                         <LoaderIcon class="animate-spin" />
@@ -380,8 +374,7 @@
             <div class="min-h-fit transition-all grid grid-cols-1 gap-2">
                 {#if !$active_project && comboValues.length && ingestData.length}
                     <Combobox
-                        {comboValues}
-                        class="w-full"
+                        comboValues={comboValues}
                         bind:value={comboboxSelectedProjectIdString}
                     />
                 {/if}
@@ -399,7 +392,7 @@
                         <button
                             class="italic underline"
                             disabled={indexing || ingesting}
-                            on:click={clearHidden}>Unhide</button
+                            onclick={clearHidden}>Unhide</button
                         ></span
                     >
                 {/if}
@@ -425,7 +418,7 @@
                         indexing ||
                         errorState ||
                         button_disabled}
-                    on:click={prepareIngest}
+                    onclick={prepareIngest}
                 >
                     {#if indexing}
                         <span class="flex items-center gap-x-2"

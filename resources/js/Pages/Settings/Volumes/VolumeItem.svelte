@@ -8,11 +8,15 @@
 
     const dispatch = createEventDispatcher();
 
+    
     /**
-     * @type {{ id: number; display_name: string; absolute_path: string; type: string; free_space: number; total_space: number; is_alive: boolean;  }}
+     * @typedef {Object} Props
+     * @property {{ id: number; display_name: string; absolute_path: string; type: string; free_space: number; total_space: number; is_alive: boolean;  }} volume
      */
-    export let volume;
-    let open = false;
+
+    /** @type {Props & { [key: string]: any }} */
+    let { volume = $bindable(), ...rest } = $props();
+    let open = $state(false);
 
     function deleteThisVolume() {
         axios
@@ -42,7 +46,7 @@
     }
 </script>
 
-<div class="flex gap-x-4 justify-between items-center {$$restProps.class}">
+<div class="flex gap-x-4 justify-between items-center {rest.class}">
     <div class="flex flex-wrap gap-x-4 items-center">
         <div>
             {volume.id}
@@ -70,11 +74,13 @@
             ><RefreshCw class="w-4 h-4" />
         </Button>
         <Dialog.Root bind:open>
-            <Dialog.Trigger asChild let:builder>
-                <Button builders={[builder]} variant="destructive"
-                    >Delete</Button
-                >
-            </Dialog.Trigger>
+            <Dialog.Trigger asChild >
+                {#snippet children({ builder })}
+                                <Button builders={[builder]} variant="destructive"
+                        >Delete</Button
+                    >
+                                            {/snippet}
+                        </Dialog.Trigger>
             <Dialog.Content>
                 <Dialog.Header>
                     <Dialog.Title>Are you absolutely sure?</Dialog.Title>

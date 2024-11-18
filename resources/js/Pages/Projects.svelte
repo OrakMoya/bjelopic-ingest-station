@@ -1,9 +1,9 @@
-<script>
+<script lang="ts">
     import CreateProjectDialog from "$lib/components/ui/CreateProjectDialog.svelte";
     import ProjectCard from "$lib/components/ui/ProjectCard.svelte";
     import Layout from "./Layout.svelte";
 
-    export let projects;
+    let { projects } = $props();
 </script>
 
 <Layout>

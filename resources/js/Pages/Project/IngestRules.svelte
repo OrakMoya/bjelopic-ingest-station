@@ -1,101 +1,86 @@
 <script>
     import Nav from "./Nav.svelte";
     import { active_project, ingest_rules_unsaved } from "$lib/store";
-    import IngestRuleTree from "./IngestRuleTree.svelte";
     import { Button } from "$lib/components/ui/button";
-    import axios from "axios";
     import { useForm, page } from "@inertiajs/svelte";
     import { onDestroy, onMount } from "svelte";
-    import { RefreshCcw } from "lucide-svelte";
+    import { RefreshCcw, VariableIcon } from "lucide-svelte";
     import MoveUpDown from "./MoveUpDown.svelte";
     import { fade } from "svelte/transition";
+    import IngestRuleTree from "./IngestRuleTree.svelte";
+    import ResizablePaneGroup from "$lib/components/ui/resizable/resizable-pane-group.svelte";
+    import IngestRuleEditorStart from "./IngestRuleEditorStart.svelte";
+    import { newRuleGenerator } from "./utils";
 
     /**
-     * @type {{ id: number; title: string; } }
+     * @import {IngestRuleObject} from "$lib/types.js"
      */
-    export let project;
+
+    /**
+     * @typedef {Object} Props
+     * @property {{ id: number; title: string; } } project
+     * @property {IngestRuleObject[]} rules
+     */
+
+    /** @type {Props} */
+    let { project, rules } = $props();
     active_project.set(project);
 
-    /**
-     * @type {any[]}
-     */
-    export let rules;
-    /**
-     * @type {Array<IngestRuleTree>}
-     */
-    let children = [];
+    let reactiveRules = $state(structuredClone(rules));
 
     let form = useForm({
-        rules: structuredClone(rules),
+        rules: rules,
+    });
+
+    $effect(() => {
+        console.log(unsaved(rules, $state.snapshot(reactiveRules)));
+        console.log(rules);
+        console.log($state.snapshot(rules));
+        $ingest_rules_unsaved = unsaved(rules, $state.snapshot(reactiveRules));
     });
 
     function save() {
-        $form.post("/projects/" + project.id + "/ingestrules", {
-            onSuccess: () => ($form.rules = structuredClone(rules)),
-        });
+        $form.rules = $state.snapshot(reactiveRules);
+        $form.post("/projects/" + project.id + "/ingestrules");
     }
 
     /**
      * @param {number} i
      */
-    function addRootChild(i) {
-        $form.rules = [
-            ...$form.rules.slice(0, i + 1),
-            {
-                operation: "save",
-                criteria: "Other",
-                next: [],
-            },
-            ...$form.rules.slice(i + 1),
-        ];
+    function moveUp(i) {
+        if (i == 0) return;
+
+        // Prevents double reactive update
+        rules = $state.snapshot(reactiveRules);
+        [rules[i], rules[i - 1]] = [rules[i - 1], rules[i]];
+        reactiveRules = rules;
     }
-
-    /**
-     * @type {number}
-     */
-    let frame = 0;
-    (function update() {
-        frame = requestAnimationFrame(update);
-    })();
-
-    onDestroy(() => {
-        cancelAnimationFrame(frame);
-    });
 
     /**
      * @param {number} i
      */
-    function moveRuleUp(i) {
-        if (i === 0) return;
-        let previousRule = $form.rules.at(i - 1);
-        let thisRule = $form.rules.at(i);
-        $form.rules[i - 1] = thisRule;
-        $form.rules[i] = previousRule;
-    }
-    /**
-     * @param {number} i
-     */
-    function moveRuleDown(i) {
-        if (i === $form.rules.length - 1) return;
-        let previousRule = $form.rules.at(i + 1);
-        let thisRule = $form.rules.at(i);
-        $form.rules[i + 1] = thisRule;
-        $form.rules[i] = previousRule;
+    function moveDown(i) {
+        if (i >= reactiveRules.length - 1) return;
+
+        // Prevents double reactive update
+        rules = $state.snapshot(reactiveRules);
+        [rules[i], rules[i + 1]] = [rules[i + 1], rules[i]];
+        reactiveRules = rules;
     }
 
     /**
-     * @param {{ operation: any; criteria: any; opts: any; next: any[]; }} rule1
-     * @param {{ operation: any; criteria: any; opts: any; next: any[]; }} rule2
+     * @param {IngestRuleObject} rule1
+     * @param {IngestRuleObject} rule2
+     * @returns {boolean}
      */
     function compare(rule1, rule2) {
         if (
             rule1.operation !== rule2.operation ||
             rule1.criteria !== rule2.criteria ||
-            rule1.opts !== rule2.opts
+            JSON.stringify(rule1.opts) !== JSON.stringify(rule2.opts) // jbg inace ne radi
         ) {
             return false;
         }
-
         if (rule1.next.length !== rule2.next.length) {
             return false;
         }
@@ -104,38 +89,45 @@
                 return false;
             }
         }
-
         return true;
     }
 
     /**
-     * @param {{ operation: any; criteria: any; opts: any; next: any[]; }[]} rules1
-     * @param {{ operation: any; criteria: any; opts: any; next: any[]; }[]} rules2
+     * @param {IngestRuleObject[]} rules1
+     * @param {IngestRuleObject[]} rules2
+     * @returns {boolean}
      */
     function unsaved(rules1, rules2) {
         if (rules1.length != rules2.length) return true;
-
         for (let i = 0; i < rules1.length; i++) {
-            if (!compare(rules1[i], rules2[i])) return true;
+            if (!compare(rules1[i], rules2[i])) {
+                return true;
+            }
         }
         return false;
     }
 
-    onDestroy(() => {
-        ingest_rules_unsaved.set(false);
-    });
+    /**
+     * @param {number} index
+     */
+    function addNewRuleBefore(index) {
+        reactiveRules.splice(index, 0, newRuleGenerator());
+    }
 
-    let saveDisabled = true;
-    $: saveDisabled = !unsaved(rules, $form.rules);
-    $: ingest_rules_unsaved.set(!saveDisabled);
+    /**
+     * @param {number} index
+     */
+    function addNewRuleAfter(index) {
+        reactiveRules.splice(index + 1, 0, newRuleGenerator());
+    }
 </script>
 
 <Nav />
 
 <div class="flex flex-col w-full h-full">
     <div class="flex gap-x-2 items-center mb-2">
-        <Button on:click={save} disabled={saveDisabled}>Save</Button>
-        <Button on:click={() => ($form.rules = rules)} disabled={saveDisabled}
+        <Button onclick={save} disabled={!$ingest_rules_unsaved}>Save</Button>
+        <Button onclick={() => (reactiveRules = rules)}
             ><RefreshCcw class="w-4 h-4" /></Button
         >
         {#if JSON.stringify($page.props.errors) !== "{}"}
@@ -146,57 +138,34 @@
             >
         {/if}
     </div>
-    <div class="w-full grow overflow-scroll flex flex-col">
-        <div
-            class="flex gap-x-2 min-w-fit w-full grow min-h-fit"
-            style="background-image: url('/ingestRuleEditorBackground.png'); background-attachment: scroll;"
-        >
-            <div
-                class="min-w-10 min-h-full self-stretch flex flex-col justify-center bg-contain bg-repeat-y opacity-45"
-                style="
-                background-image: url('/ingestRuleEditorStart.png');
-                background-position-y: {frame / 8}px ;
-            "
-            ></div>
-            <div
-                class="flex flex-col gap-4 w-fit h-fit transition-all duration-500"
-            >
-                    <Button
-                        on:click={() => addRootChild(0)}
-                        variant="ghost"
-                        class="text-lg ">+</Button
+    <div
+        class="flex w-full h-full grow overflow-scroll"
+        style="
+        background-image: url('/ingestRuleEditorBackground.png');
+    background-attachment: scroll;"
+    >
+        <IngestRuleEditorStart />
+        <div class="flex flex-col gap-y-2 w-full h-full grow">
+            {#each reactiveRules as _, i}
+                <div class="flex flex-col gap-y-2 w-fit">
+                    {#if i == 0}
+                        <Button
+                            variant="ghost"
+                            onclick={() => addNewRuleBefore(i)}>+</Button
+                        >
+                    {/if}
+                    <IngestRuleTree
+                        onMoveDown={() => moveDown(i)}
+                        onMoveUp={() => moveUp(i)}
+                        onDelete={() =>
+                            (reactiveRules = reactiveRules.toSpliced(i, 1))}
+                        bind:rule={reactiveRules[i]}
+                    />
+                    <Button variant="ghost" onclick={() => addNewRuleAfter(i)}
+                        >+</Button
                     >
-
-                {#each $form.rules as rule, i}
-                    <div class="flex flex-col w-fit gap-4">
-                        <div class="flex">
-                            <MoveUpDown
-                                on:moveUp={() => moveRuleUp(i)}
-                                on:moveDown={() => moveRuleDown(i)}
-                            />
-                            <IngestRuleTree
-                                label={(i + 1).toString()}
-                                bind:rule={$form.rules[i]}
-                                bind:this={children[i]}
-                                on:deleteThis={() => {
-                                    $form.rules = $form.rules.toSpliced(i, 1);
-                                }}
-                            />
-                        </div>
-                        {#if rule.operation !== "save"}
-                            <div
-                                class="flex flex-col justify-center transition-all duration-500"
-                            >
-                                <Button
-                                    on:click={() => addRootChild(i)}
-                                    variant="ghost"
-                                    class="text-lg ">+</Button
-                                >
-                            </div>
-                        {/if}
-                    </div>
-                {/each}
-            </div>
+                </div>
+            {/each}
         </div>
     </div>
 </div>

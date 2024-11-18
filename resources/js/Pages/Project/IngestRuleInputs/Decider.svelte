@@ -2,19 +2,24 @@
     import { Input } from "$lib/components/ui/input";
     import MimetypeIsInput from "./MimetypeIsInput.svelte";
     import ExifTagIsInput from "./ExifTagIsInput.svelte";
+    /** @import IngestRuleObject from "$lib/types" */
 
-    export let operation = "save";
-    export let value = "";
     /**
-     * @type any
+     * @typedef Props
+     * @property {IngestRuleObject}  rule
      */
-    export let opts;
+
+    /** @type {Props} */
+    let {
+        rule = $bindable()
+    } = $props();
+
 </script>
 
-{#if operation == "mimetypeIs"}
-    <MimetypeIsInput bind:value />
-{:else if operation == "exifTagIs"}
-    <ExifTagIsInput bind:value bind:opts />
+{#if rule.operation == "mimetypeIs"}
+    <MimetypeIsInput bind:value={rule.criteria} />
+{:else if rule.operation == "exifTagIs"}
+    <ExifTagIsInput bind:value={rule.criteria} bind:opts={rule.opts} />
 {:else}
-    <Input class="bg-background" bind:value />
+    <Input class="bg-background" bind:value={rule.criteria} />
 {/if}

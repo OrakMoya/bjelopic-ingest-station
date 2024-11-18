@@ -1,4 +1,6 @@
 <script>
+    import { preventDefault } from 'svelte/legacy';
+
     import { Button } from "$lib/components/ui/button";
     import * as Dialog from "$lib/components/ui/dialog";
     import { Input } from "$lib/components/ui/input";
@@ -14,7 +16,7 @@
         .querySelector('meta[name="csrf-token"]')
         ?.getAttribute("content");
 
-    let open = false;
+    let open = $state(false);
 
     async function processSubmit() {
         axios
@@ -28,21 +30,23 @@
             });
     }
 
-    let formData = {
+    let formData = $state({
         _token: csrf_token,
         display_name: null,
         absolute_path: null,
         type: "storage",
-    };
+    });
 </script>
 
 <Dialog.Root bind:open>
-    <Dialog.Trigger asChild let:builder>
-        <Button builders={[builder]}>Add</Button>
-    </Dialog.Trigger>
+    <Dialog.Trigger asChild >
+        {#snippet children({ builder })}
+                <Button builders={[builder]}>Add</Button>
+                    {/snippet}
+        </Dialog.Trigger>
     <Dialog.Content>
         <form
-            on:submit|preventDefault={processSubmit}
+            onsubmit={preventDefault(processSubmit)}
             class="flex flex-col gap-y-2"
         >
             <Dialog.Header>

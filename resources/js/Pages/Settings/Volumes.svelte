@@ -18,10 +18,14 @@
         headers.append("X-CSRF-TOKEN", csrf_token);
     }
 
+    
     /**
-     * @type {any[]}
+     * @typedef {Object} Props
+     * @property {any[]} volumes
      */
-    export let volumes;
+
+    /** @type {Props} */
+    let { volumes = $bindable() } = $props();
     refreshVolumes();
 
     function refreshVolumes() {

@@ -1,10 +1,10 @@
-<script>
+<script lang="ts">
     import Nav from "./Nav.svelte";
     import { active_project } from "$lib/store";
     import { Button } from "$lib/components/ui/button";
     import { TrashIcon } from "lucide-svelte";
     import { router } from "@inertiajs/svelte";
-    export let project;
+    let { project } = $props();
     active_project.set(project);
 
 

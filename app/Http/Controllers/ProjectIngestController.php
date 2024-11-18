@@ -7,6 +7,7 @@ use App\Helpers\IngestRuleFactory;
 use App\Models\IngestRule;
 use App\Models\Project;
 use GuzzleHttp\Utils;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -30,7 +31,7 @@ class ProjectIngestController extends Controller
         return Inertia::render('Project/IngestRules', $returnData);
     }
 
-    public function store(Project $project, Request $request)
+    public function store(Project $project, Request $request): RedirectResponse
     {
         $rule = IngestRule::select('*')
             ->where('project_id', '=', $project->id)

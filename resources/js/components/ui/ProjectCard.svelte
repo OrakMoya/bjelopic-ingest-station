@@ -1,6 +1,6 @@
-<script>
-    export let project;
+<script lang="ts">
     import { Link } from "@inertiajs/svelte";
+    let { project } = $props();
 </script>
 
 <Link

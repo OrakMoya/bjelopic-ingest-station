@@ -133,7 +133,7 @@ class IngestAction
     public function performIngest(Project $project, array|Collection $files, array $newPaths, int $totalFileCount = 0, array $opts = []): void
     {
 
-        $projectVolume = Volume::find($project->volume_id)->first();
+        $projectVolume = Volume::find($project->volume_id);
 
         foreach ($files as $file) {
             $this->file = $file;
@@ -373,7 +373,7 @@ class IngestAction
             $bs = $oneMegabyte * 5;
             $interval = 1;
 
-            if ($fileSize > $bs*10) {
+            if ($fileSize > $bs * 10) {
                 $currentHandle = fopen($currentFullAbsolutePath, 'r');
                 $newHandle = fopen($newFullAbsolutePath, 'w');
 

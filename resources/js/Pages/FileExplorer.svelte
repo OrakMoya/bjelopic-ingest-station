@@ -1,13 +1,13 @@
 <script>
-    export let files;
-    export let directories;
-    export let parent;
+    import { run } from 'svelte/legacy';
+
 
     import * as Breadcrumb from "$lib/components/ui/breadcrumb";
     import { Link, page } from "@inertiajs/svelte";
+    let { files, directories, parent } = $props();
 
-    let entries = [];
-    let breadcrumb_trail = [];
+    let entries = $state([]);
+    let breadcrumb_trail = $state([]);
 
     /**
      * @param {string} parent
@@ -45,8 +45,12 @@
         return trail;
     }
 
-    $: entries = processEntries(parent, directories, files);
-    $: breadcrumb_trail = processBreadcrumbTrail($page.url);
+    run(() => {
+        entries = processEntries(parent, directories, files);
+    });
+    run(() => {
+        breadcrumb_trail = processBreadcrumbTrail($page.url);
+    });
 
 </script>
 

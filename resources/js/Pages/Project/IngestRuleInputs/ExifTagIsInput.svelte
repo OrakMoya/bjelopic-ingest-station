@@ -1,11 +1,14 @@
 <script>
     import { Input } from "$lib/components/ui/input";
 
-    export let value = "";
     /**
-     * @type {any | { tag: string; }}
+     * @typedef {Object} Props
+     * @property {string} value
+     * @property {any | { tag: string; }} opts
      */
-    export let opts;
+
+    /** @type {Props} */
+    let { value = $bindable(), opts = $bindable() } = $props();
 
     if (!opts?.tag) opts = { tag: "" };
 </script>
